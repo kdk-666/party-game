@@ -2,50 +2,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Motion Party</title>
-<body style="font-family:sans-serif;text-align:center">
+<body id="bg" style="font-family:sans-serif;text-align:center;transition:background .2s">
 <h1>Motion Party</h1>
 <div id="form">
   <input id="name" placeholder="닉네임" maxlength="12" style="font-size:24px;width:80%">
   <br><br>
   <button id="btn" style="font-size:24px;padding:10px 30px">참가</button>
 </div>
-<p id="msg" style="font-size:22px"></p>
-<p id="val" style="font-size:40px"></p>
+<p id="msg" style="font-size:28px"></p>
+<p id="val" style="font-size:30px"></p>
 <script>
 const ws = new WebSocket("wss://" + location.host + "/ws/player");
-let last = 0;
+const bg = document.getElementById("bg");
+const msgEl = document.getElementById("msg");
+let last = 0, myName = "";
 
 function startSensor() {
   window.addEventListener("devicemotion", (e) => {
     const now = Date.now();
-    if (now - last < 100) return;   // 0.1초에 한 번만
+    if (now - last < 100) return;
     last = now;
-    const a = e.acceleration;        // 중력 제외 가속도
-    if (!a || a.x === null) {
-      document.getElementById("val").textContent = "센서 값 없음";
-      return;
-    }
+    const a = e.acceleration;
+    if (!a || a.x === null) { document.getElementById("val").textContent = "센서 값 없음"; return; }
     const value = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
     document.getElementById("val").textContent = value.toFixed(2);
     ws.send(JSON.stringify({type: "motion", data: {value: value}}));
   });
 }
 
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data), d = msg.data;
+  if (msg.type === "countdown") { bg.style.background = "#fff"; msgEl.textContent = "준비! 곧 시작해요"; }
+  else if (msg.type === "state") {
+    bg.style.background = d.state === "green" ? "#7bd88f" : "#ff6b6b";
+    msgEl.textContent = d.state === "green" ? "움직여!" : "멈춰!";
+  } else if (msg.type === "eliminated" && d.name === myName) {
+    bg.style.background = "#555"; msgEl.textContent = "탈락 😢";
+  } else if (msg.type === "game_over") {
+    bg.style.background = "#fff";
+    msgEl.textContent = d.winner === myName ? "🏆 우승!" : "게임 끝 (우승: " + d.winner + ")";
+  }
+};
+
 document.getElementById("btn").onclick = async () => {
   const name = document.getElementById("name").value.trim();
   if (!name) return;
-  // iOS는 여기서 권한 팝업이 뜬다
   if (typeof DeviceMotionEvent !== "undefined" &&
       typeof DeviceMotionEvent.requestPermission === "function") {
     const r = await DeviceMotionEvent.requestPermission();
-    if (r !== "granted") {
-      document.getElementById("msg").textContent = "센서 권한이 거부됐어요";
-      return;
-    }
+    if (r !== "granted") { msgEl.textContent = "센서 권한이 거부됐어요"; return; }
   }
+  myName = name;
   ws.send(JSON.stringify({type: "join", data: {name: name}}));
   document.getElementById("form").style.display = "none";
-  document.getElementById("msg").textContent = name + " 님, 참가 완료!";
+  msgEl.textContent = name + " 님, 참가 완료!";
   startSensor();
 };
 </script>

@@ -1,13 +1,17 @@
 ﻿<!doctype html>
 <meta charset="utf-8">
 <title>Motion Party</title>
-<body style="font-family:sans-serif;text-align:center">
+<body id="bg" style="font-family:sans-serif;text-align:center;transition:background .2s">
 <h1>Motion Party</h1>
-<p>폰으로 QR을 스캔하세요</p>
-<img id="qr" width="250">
-<p id="url"></p>
-<h2>참가자</h2>
-<ul id="list" style="list-style:none;font-size:24px;padding:0"></ul>
+<div id="lobby">
+  <p>폰으로 QR을 스캔하세요</p>
+  <img id="qr" width="250">
+  <p id="url"></p>
+</div>
+<button id="start" style="font-size:28px;padding:10px 40px">게임 시작</button>
+<h1 id="status"></h1>
+<h2>참가자 (술래까지 거리)</h2>
+<div id="list" style="width:70%;margin:auto;font-size:22px;text-align:left"></div>
 <script>
 const joinUrl = location.origin + "/play";
 document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
@@ -15,16 +19,40 @@ document.getElementById("url").textContent = joinUrl;
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
+const bg = document.getElementById("bg");
+const status = document.getElementById("status");
+const list = document.getElementById("list");
+let names = [], alive = null, dist = {};
+const START = 100;
+
+function draw() {
+  list.innerHTML = names.map(n => {
+    const dead = alive && !alive.includes(n);
+    const d = dist[n] !== undefined ? dist[n] : START;
+    const pct = Math.max(0, Math.min(100, (START - d) / START * 100));
+    return "<div style='margin:8px 0;" + (dead ? "color:#999" : "") + "'>" + esc(n) +
+      " — " + d.toFixed(1) + "m" + (dead ? " (정지)" : "") +
+      "<div style='background:#ddd;height:18px;border-radius:9px'>" +
+      "<div style='background:" + (dead ? "#999" : "#3b82f6") + ";height:18px;border-radius:9px;width:" + pct + "%'></div></div></div>";
+  }).join("");
+}
+
+document.getElementById("start").onclick = () => ws.send(JSON.stringify({type: "start", data: {}}));
+
 ws.onmessage = (e) => {
-  const msg = JSON.parse(e.data);
-  if (msg.type === "lobby") {
-    document.getElementById("list").innerHTML = msg.data.players.map(n =>
-      "<li>" + esc(n) + " : <b class='v' data-n='" + esc(n).replace(/'/g, "") + "'>-</b></li>").join("");
-  } else if (msg.type === "motion") {
-    document.querySelectorAll(".v").forEach(el => {
-      if (el.dataset.n === esc(msg.data.name).replace(/'/g, ""))
-        el.textContent = msg.data.value.toFixed(2);
-    });
+  const msg = JSON.parse(e.data), d = msg.data;
+  if (msg.type === "lobby") { names = d.players; draw(); }
+  else if (msg.type === "countdown") {
+    alive = null; dist = {}; bg.style.background = "#fff"; status.textContent = "준비하세요! 3초 후 시작"; draw();
+  } else if (msg.type === "state") {
+    alive = d.alive; draw();
+    bg.style.background = d.state === "green" ? "#7bd88f" : "#ff6b6b";
+    status.textContent = d.state === "green" ? "🟢 초록불: 흔들어서 앞으로!" : "🔴 빨간불: 멈춰!";
+  } else if (msg.type === "dist") { dist = d.dist; alive = d.alive; draw(); }
+  else if (msg.type === "eliminated") { alive = d.alive; draw(); }
+  else if (msg.type === "game_over") {
+    dist = d.dist; draw(); bg.style.background = "#fff";
+    status.textContent = "🏆 우승: " + d.winner + (d.arrived.length ? " (도착!)" : " (가장 가까이 감)");
   }
 };
 </script>
