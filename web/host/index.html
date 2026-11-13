@@ -1,0 +1,24 @@
+﻿<!doctype html>
+<meta charset="utf-8">
+<title>Motion Party</title>
+<body style="font-family:sans-serif;text-align:center">
+<h1>Motion Party</h1>
+<p>폰으로 QR을 스캔하세요</p>
+<img id="qr" width="250">
+<p id="url"></p>
+<h2>참가자</h2>
+<ul id="list" style="list-style:none;font-size:24px;padding:0"></ul>
+<script>
+const joinUrl = location.origin + "/play";
+document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
+document.getElementById("url").textContent = joinUrl;
+
+const ws = new WebSocket("wss://" + location.host + "/ws/host");
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === "lobby") {
+    document.getElementById("list").innerHTML =
+      msg.data.players.map(n => "<li>" + n.replace(/</g, "&lt;") + "</li>").join("");
+  }
+};
+</script>

@@ -1,0 +1,22 @@
+﻿<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion Party</title>
+<body style="font-family:sans-serif;text-align:center">
+<h1>Motion Party</h1>
+<div id="form">
+  <input id="name" placeholder="닉네임" maxlength="12" style="font-size:24px;width:80%">
+  <br><br>
+  <button id="btn" style="font-size:24px;padding:10px 30px">참가</button>
+</div>
+<p id="msg" style="font-size:22px"></p>
+<script>
+const ws = new WebSocket("wss://" + location.host + "/ws/player");
+document.getElementById("btn").onclick = () => {
+  const name = document.getElementById("name").value.trim();
+  if (!name) return;
+  ws.send(JSON.stringify({type: "join", data: {name: name}}));
+  document.getElementById("form").style.display = "none";
+  document.getElementById("msg").textContent = name + " 님, 참가 완료! 기다려 주세요";
+};
+</script>
