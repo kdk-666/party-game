@@ -13,12 +13,18 @@ const joinUrl = location.origin + "/play";
 document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
 document.getElementById("url").textContent = joinUrl;
 
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
 ws.onmessage = (e) => {
   const msg = JSON.parse(e.data);
   if (msg.type === "lobby") {
-    document.getElementById("list").innerHTML =
-      msg.data.players.map(n => "<li>" + n.replace(/</g, "&lt;") + "</li>").join("");
+    document.getElementById("list").innerHTML = msg.data.players.map(n =>
+      "<li>" + esc(n) + " : <b class='v' data-n='" + esc(n).replace(/'/g, "") + "'>-</b></li>").join("");
+  } else if (msg.type === "motion") {
+    document.querySelectorAll(".v").forEach(el => {
+      if (el.dataset.n === esc(msg.data.name).replace(/'/g, ""))
+        el.textContent = msg.data.value.toFixed(2);
+    });
   }
 };
 </script>

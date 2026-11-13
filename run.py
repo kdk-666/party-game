@@ -52,4 +52,5 @@ if __name__ == "__main__":
     print("\n폰으로 아래 QR을 스캔하거나 주소를 입력하세요:")
     print_qr(url)
     print(url, "\n")
-    uvicorn.run("server.main:app", host="0.0.0.0", port=PORT, ssl_keyfile=KEY, ssl_certfile=CERT)
+    uvicorn.run("server.main:app", host="0.0.0.0", port=PORT,
+                ssl_keyfile=KEY, ssl_certfile=CERT, timeout_graceful_shutdown=1)

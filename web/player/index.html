@@ -10,13 +10,42 @@
   <button id="btn" style="font-size:24px;padding:10px 30px">참가</button>
 </div>
 <p id="msg" style="font-size:22px"></p>
+<p id="val" style="font-size:40px"></p>
 <script>
 const ws = new WebSocket("wss://" + location.host + "/ws/player");
-document.getElementById("btn").onclick = () => {
+let last = 0;
+
+function startSensor() {
+  window.addEventListener("devicemotion", (e) => {
+    const now = Date.now();
+    if (now - last < 100) return;   // 0.1초에 한 번만
+    last = now;
+    const a = e.acceleration;        // 중력 제외 가속도
+    if (!a || a.x === null) {
+      document.getElementById("val").textContent = "센서 값 없음";
+      return;
+    }
+    const value = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+    document.getElementById("val").textContent = value.toFixed(2);
+    ws.send(JSON.stringify({type: "motion", data: {value: value}}));
+  });
+}
+
+document.getElementById("btn").onclick = async () => {
   const name = document.getElementById("name").value.trim();
   if (!name) return;
+  // iOS는 여기서 권한 팝업이 뜬다
+  if (typeof DeviceMotionEvent !== "undefined" &&
+      typeof DeviceMotionEvent.requestPermission === "function") {
+    const r = await DeviceMotionEvent.requestPermission();
+    if (r !== "granted") {
+      document.getElementById("msg").textContent = "센서 권한이 거부됐어요";
+      return;
+    }
+  }
   ws.send(JSON.stringify({type: "join", data: {name: name}}));
   document.getElementById("form").style.display = "none";
-  document.getElementById("msg").textContent = name + " 님, 참가 완료! 기다려 주세요";
+  document.getElementById("msg").textContent = name + " 님, 참가 완료!";
+  startSensor();
 };
 </script>
