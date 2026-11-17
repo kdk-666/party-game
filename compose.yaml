@@ -1,0 +1,11 @@
+services:
+  game:
+    build: .
+    expose:
+      - "8000"
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --url http://game:8000
+    depends_on:
+      - game
