@@ -50,6 +50,7 @@ async def ws_host(ws: WebSocket):
             msg = json.loads(await ws.receive_text())
             if msg["type"] == "start" and players and not (game and game.running):
                 game = RedLight(list(players.values()), to_everyone)
+                game.running = True
                 asyncio.create_task(game.run())
     except WebSocketDisconnect:
         hosts.remove(ws)
@@ -63,8 +64,14 @@ async def ws_player(ws: WebSocket):
             msg = json.loads(await ws.receive_text())
             if msg["type"] == "join":
                 name = msg["data"]["name"].strip()[:12]
+                if game is not None and game.running:
+                    await ws.send_json({
+                        "type": "join_error",
+                        "data": {"message": "게임이 끝난 뒤 참가해 주세요."}
+                    })
+                elif not name:
 
-                if not name:
+
                     await ws.send_json({
                         "type": "join_error",
                         "data": {"message": "닉네임을 입력해 주세요."}
@@ -87,8 +94,13 @@ async def ws_player(ws: WebSocket):
                 if game:
                     await game.on_motion(players[ws], v)
     except WebSocketDisconnect:
-        players.pop(ws, None)
+        name = players.pop(ws, None)
+
+        if name is not None and game is not None:
+            await game.remove_player(name)
+
         await send_lobby()
+
 
 
 @app.get("/qr.svg")

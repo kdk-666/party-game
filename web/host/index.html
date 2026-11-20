@@ -50,6 +50,10 @@ ws.onmessage = (e) => {
     status.textContent = d.state === "green" ? "🟢 초록불: 흔들어서 앞으로!" : "🔴 빨간불: 멈춰!";
   } else if (msg.type === "dist") { dist = d.dist; alive = d.alive; draw(); }
   else if (msg.type === "eliminated") { alive = d.alive; draw(); }
+  else if (msg.type === "game_cancelled") {
+  bg.style.background = "#fff";
+  status.textContent = "참가자가 모두 나가 게임이 취소됐습니다.";
+}
   else if (msg.type === "game_over") {
     dist = d.dist; draw(); bg.style.background = "#fff";
     status.textContent = "🏆 우승: " + d.winner + (d.arrived.length ? " (도착!)" : " (가장 가까이 감)");

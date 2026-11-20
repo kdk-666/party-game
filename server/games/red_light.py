@@ -14,33 +14,62 @@ class RedLight:
         self.dist = {n: START_DIST for n in names}   # 남은 거리
         self.motion = {n: 0.0 for n in names}        # 최근 움직임 값
         self.alive = set(names)
+        self.connected = set(names)  # 게임에 연결되어 있는 참가자
         self.out = []
         self.arrived = []
         self.state = "green"
         self.red_since = 0.0
         self.running = False
+        self.end_event = asyncio.Event()
         self.broadcast = broadcast
 
     async def run(self):
         self.running = True
-        loop = asyncio.get_event_loop()
+
         await self.broadcast({"type": "countdown", "data": {}})
-        await asyncio.sleep(3)
-        self.loop_task = asyncio.create_task(self.move_loop())
-        while self.running and self.alive:
-            await self.set_state("green")
-            await asyncio.sleep(random.uniform(3, 6))
-            await self.set_state("red")
-            self.red_since = loop.time()
-            await asyncio.sleep(random.uniform(2, 4))
+        await self.wait_or_end(3)
+
+        if not self.end_event.is_set():
+            self.loop_task = asyncio.create_task(self.move_loop())
+
+            while not self.end_event.is_set():
+                await self.set_state("green")
+                await self.wait_or_end(random.uniform(3, 6))
+
+                if self.end_event.is_set():
+                    break
+
+                self.red_since = asyncio.get_running_loop().time()
+                await self.set_state("red")
+                await self.wait_or_end(random.uniform(2, 4))
+
+            self.loop_task.cancel()
+            try:
+                await self.loop_task
+            except asyncio.CancelledError:
+                pass
+
         self.running = False
-        self.loop_task.cancel()
-        if self.arrived:
-            winner = self.arrived[0]
+
+        if not self.connected:
+            await self.broadcast({"type": "game_cancelled", "data": {}})
+            return
+
+        arrived = [name for name in self.arrived if name in self.connected]
+
+        if arrived:
+            winner = arrived[0]
         else:
-            winner = min(self.dist, key=self.dist.get)   # 가장 가까이 갔던 사람
-        await self.broadcast({"type": "game_over", "data": {
-            "winner": winner, "arrived": self.arrived, "dist": self.dist}})
+            winner = min(self.connected, key=lambda name: self.dist[name])
+
+        await self.broadcast({
+            "type": "game_over",
+            "data": {
+                "winner": winner,
+                "arrived": arrived,
+                "dist": self.dist
+            }
+        })
 
     async def move_loop(self):
         # 0.1초마다 초록불인 동안 거리를 줄이고 화면에 알린다
@@ -54,7 +83,7 @@ class RedLight:
                         self.alive.discard(n)
                         self.arrived.append(n)
                 if self.arrived:
-                    self.running = False   # 먼저 도착하면 즉시 종료
+                    self.end_event.set()  # 도착자가 생기면 종료 신호
             await self.broadcast({"type": "dist", "data": {
                 "dist": self.dist, "alive": sorted(self.alive)}})
 
@@ -72,5 +101,25 @@ class RedLight:
             return
         if value > THRESHOLD:
             self.alive.discard(name)
+            if not self.alive:
+                self.end_event.set()
             self.out.append(name)
             await self.broadcast({"type": "eliminated", "data": {"name": name, "alive": sorted(self.alive)}})
+
+    async def remove_player(self, name):
+        self.connected.discard(name)
+        self.alive.discard(name)
+
+        if not self.alive:
+            self.end_event.set()
+
+        await self.broadcast({
+            "type": "player_left",
+            "data": {"name": name}
+        })
+
+    async def wait_or_end(self, seconds):
+        try:
+            await asyncio.wait_for(self.end_event.wait(), timeout=seconds)
+        except asyncio.TimeoutError:
+            pass
