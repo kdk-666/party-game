@@ -32,7 +32,17 @@ function startSensor() {
 
 ws.onmessage = (e) => {
   const msg = JSON.parse(e.data), d = msg.data;
-  if (msg.type === "countdown") { bg.style.background = "#fff"; msgEl.textContent = "준비! 곧 시작해요"; }
+  if (msg.type === "join_ok") {
+  myName = d.name;
+  document.getElementById("form").style.display = "none";
+  msgEl.textContent = myName + " 님, 참가 완료!";
+  startSensor();
+} else if (msg.type === "join_error") {
+  msgEl.textContent = d.message;
+} else if (msg.type === "countdown") {
+  bg.style.background = "#fff";
+  msgEl.textContent = "준비! 곧 시작해요";
+}
   else if (msg.type === "state") {
     bg.style.background = d.state === "green" ? "#7bd88f" : "#ff6b6b";
     msgEl.textContent = d.state === "green" ? "움직여!" : "멈춰!";
@@ -52,10 +62,6 @@ document.getElementById("btn").onclick = async () => {
     const r = await DeviceMotionEvent.requestPermission();
     if (r !== "granted") { msgEl.textContent = "센서 권한이 거부됐어요"; return; }
   }
-  myName = name;
   ws.send(JSON.stringify({type: "join", data: {name: name}}));
-  document.getElementById("form").style.display = "none";
-  msgEl.textContent = name + " 님, 참가 완료!";
-  startSensor();
 };
 </script>

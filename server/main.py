@@ -62,8 +62,25 @@ async def ws_player(ws: WebSocket):
         while True:
             msg = json.loads(await ws.receive_text())
             if msg["type"] == "join":
-                players[ws] = msg["data"]["name"][:12]
-                await send_lobby()
+                name = msg["data"]["name"].strip()[:12]
+
+                if not name:
+                    await ws.send_json({
+                        "type": "join_error",
+                        "data": {"message": "닉네임을 입력해 주세요."}
+                    })
+                elif name in players.values():
+                    await ws.send_json({
+                        "type": "join_error",
+                        "data": {"message": "이미 사용 중인 닉네임입니다."}
+                    })
+                else:
+                    players[ws] = name
+                    await ws.send_json({
+                        "type": "join_ok",
+                        "data": {"name": name}
+                    })
+                    await send_lobby()
             elif msg["type"] == "motion" and ws in players:
                 v = msg["data"]["value"]
                 await to_hosts({"type": "motion", "data": {"name": players[ws], "value": v}})
