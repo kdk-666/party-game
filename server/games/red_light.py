@@ -1,18 +1,21 @@
 ﻿import asyncio
+import time
 import random
-
+GAME_TIME = 600.0  # 게임 제한 시간(초)
 THRESHOLD = 2.0      # 빨간불에 이 값보다 크게 움직이면 탈락
 GRACE = 0.5          # 빨간불 직후 봐주는 시간(초)
 START_DIST = 100.0   # 술래까지 거리(m)
 MAX_SPEED = 5.0      # 최대 속도(m/초)
 SPEED_RATE = 1.0     # 움직임 값 1당 속도(m/초). 올리면 더 빨리 감
 TICK = 0.1           # 거리 갱신 간격(초)
+MOTION_TIMEOUT = 0.5  # 0.5초 동안 새 센서 값이 없으면 움직임을 0으로 처리
 
 
 class RedLight:
     def __init__(self, names, broadcast):
         self.dist = {n: START_DIST for n in names}   # 남은 거리
         self.motion = {n: 0.0 for n in names}        # 최근 움직임 값
+        self.motion_time = {n: 0.0 for n in names}
         self.alive = set(names)
         self.connected = set(names)  # 게임에 연결되어 있는 참가자
         self.out = []
@@ -31,17 +34,23 @@ class RedLight:
 
         if not self.end_event.is_set():
             self.loop_task = asyncio.create_task(self.move_loop())
+            end_time = asyncio.get_running_loop().time() + GAME_TIME / 10
 
             while not self.end_event.is_set():
                 await self.set_state("green")
-                await self.wait_or_end(random.uniform(3, 6))
+                remaining = end_time - asyncio.get_running_loop().time()
+                await self.wait_or_end(min(random.uniform(3, 6), remaining))
 
-                if self.end_event.is_set():
+                if self.end_event.is_set() or asyncio.get_running_loop().time() >= end_time:
                     break
 
                 self.red_since = asyncio.get_running_loop().time()
                 await self.set_state("red")
-                await self.wait_or_end(random.uniform(2, 4))
+                remaining = end_time - asyncio.get_running_loop().time()
+                await self.wait_or_end(min(random.uniform(2, 4), remaining))
+
+                if asyncio.get_running_loop().time() >= end_time:
+                    break
 
             self.loop_task.cancel()
             try:
@@ -76,8 +85,12 @@ class RedLight:
         while True:
             await asyncio.sleep(TICK)
             if self.state == "green":
+                now = asyncio.get_running_loop().time()
+
                 for n in list(self.alive):
-                    speed = min(self.motion[n] * SPEED_RATE, MAX_SPEED)
+                    elapsed = now - self.motion_time[n]
+                    motion = self.motion[n] if elapsed <= MOTION_TIMEOUT else 0.0
+                    speed = min(motion * SPEED_RATE, MAX_SPEED)
                     self.dist[n] = max(0.0, self.dist[n] - speed * TICK)
                     if self.dist[n] <= 0:
                         self.alive.discard(n)
@@ -95,6 +108,7 @@ class RedLight:
         if not self.running or name not in self.alive:
             return
         self.motion[name] = value
+        self.motion_time[name] = time.time()
         if self.state != "red":
             return
         if asyncio.get_event_loop().time() - self.red_since < GRACE:
