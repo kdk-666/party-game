@@ -1,20 +1,40 @@
 ﻿<!doctype html>
 <meta charset="utf-8">
 <link rel="stylesheet" href="/static/guide.css">
-<title>Motion Party</title>
+<link rel="stylesheet" href="/static/lobby.css">
+
+<title>미정</title>
 <body id="bg" style="font-family:sans-serif;text-align:center;transition:background .2s">
-<h1>Motion Party</h1>
-<div id="lobby">
-  <p>폰으로 QR을 스캔하세요</p>
-  <img id="qr" width="250">
-  <p id="url"></p>
-</div>
-<button id="start" style="font-size:28px;padding:10px 40px">게임 시작</button>
-<h1 id="status"></h1>
-<h2>참가자 (술래까지 거리)</h2>
-<div id="list" style="width:70%;margin:auto;font-size:22px;text-align:left"></div>
-<h2>게임 순위</h2>
-<div id="ranking" style="font-size:22px;white-space:pre-line"></div>
+<h1 class="brand">미정</h1>
+<p class="brand-caption"></p>
+
+<main id="host-waiting" class="host-waiting">
+  <section id="lobby" class="lobby-card qr-card">
+    <p class="lobby-kicker">JOIN THE PARTY</p>
+    <h2>휴대폰으로 참가하기</h2>
+    <p>카메라로 QR 코드를 스캔해 주세요.</p>
+    <div class="qr-box"><img id="qr" width="250" alt="참가 페이지 QR 코드"></div>
+    <p id="url"></p>
+  </section>
+
+  <section class="lobby-card">
+    <p class="lobby-kicker">PLAYER LOBBY</p>
+    <h2>참가자</h2>
+    <p id="lobby-count" class="lobby-count">0 / 4명 참가 중</p>
+    <ul id="lobby-players" class="lobby-slots"></ul>
+    <button id="start" class="lobby-button" disabled>게임 시작</button>
+    <p id="host-connection" class="lobby-footnote">서버에 연결하고 있어요.</p>
+  </section>
+</main>
+
+<main id="host-game" class="host-game" hidden>
+  <h1 id="status"></h1>
+  <h2>참가자 (술래까지 거리)</h2>
+  <div id="list" style="width:70%;margin:auto;font-size:22px;text-align:left"></div>
+  <h2>게임 순위</h2>
+  <div id="ranking" style="font-size:22px;white-space:pre-line"></div>
+  <button id="host-back" class="lobby-button host-back" hidden>대기실로 돌아가기</button>
+</main>
 <div id="game-guide" class="guide-overlay" hidden>
   <section class="guide-card" role="dialog" aria-labelledby="guide-title">
     <p id="guide-round" class="guide-kicker"></p>
@@ -27,6 +47,7 @@
   </section>
 </div>
 <script src="/static/guide.js"></script>
+<script src="/static/host-lobby.js"></script>
 <script>
 const joinUrl = location.origin + "/play";
 document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
@@ -35,12 +56,13 @@ document.getElementById("url").textContent = joinUrl;
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
 setupGameGuide(ws, () => null);
+setupHostLobby(ws);
 const bg = document.getElementById("bg");
 const status = document.getElementById("status");
 const rankingEl = document.getElementById("ranking");
 const list = document.getElementById("list");
 let names = [], alive = null, dist = {};
-const START = 100;
+const START = 10;
 
 function draw() {
   list.innerHTML = names.map(n => {

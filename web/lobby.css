@@ -1,0 +1,42 @@
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; color: #211d3c; background: #f4f1fa; }
+.brand { margin: 8px 0 6px; color: #292052; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
+.brand-caption { margin: 0 0 24px; color: #6b6680; font-size: 15px; }
+.host-waiting { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 960px; margin: 0 auto; text-align: left; }
+.lobby-card { padding: 28px; border: 1px solid #e4def0; border-radius: 24px; background: #fff; box-shadow: 0 12px 35px rgba(40, 27, 75, .08); }
+.qr-card { color: #fff; background: linear-gradient(145deg, #1d204e, #342458); border-color: transparent; text-align: center; }
+.lobby-kicker { margin: 0 0 8px; color: #8b71cb; font-size: 13px; font-weight: 800; letter-spacing: .08em; }
+.qr-card .lobby-kicker { color: #c9b8ff; }
+.lobby-card h2 { margin: 0 0 8px; font-size: 24px; }
+.lobby-card p { line-height: 1.5; }
+.qr-box { display: inline-block; padding: 12px; margin: 14px 0 4px; border-radius: 16px; background: #fff; }
+#qr { display: block; width: min(200px, 100%); height: auto; }
+#url { margin: 12px 0 0; color: #e6ddff; font-size: 12px; overflow-wrap: anywhere; }
+.lobby-count { color: #716b83; font-size: 14px; }
+.lobby-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0; margin: 20px 0; list-style: none; }
+.lobby-slots li { display: flex; align-items: center; min-height: 64px; padding: 12px; overflow-wrap: anywhere; border: 1px dashed #d7cfe5; border-radius: 14px; color: #9990a6; background: #faf9fc; }
+.lobby-slots li.joined { border: 1px solid #ded5f2; color: #342558; background: #f3eefa; font-weight: 700; }
+.lobby-button { width: 100%; min-height: 56px; border: 0; border-radius: 14px; color: #211d3c; background: #ffe085; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; }
+.lobby-button:disabled { color: #9d95a6; background: #e8e4eb; cursor: not-allowed; }
+.lobby-footnote { margin: 12px 0 0; color: #7a7486; font-size: 13px; }
+.host-game { max-width: 960px; margin: 0 auto; padding: 24px; border-radius: 24px; background: rgba(255,255,255,.92); }
+.host-game #list { width: 100% !important; }
+.host-back { max-width: 360px; margin: 24px auto 0; }
+.player-card { width: min(100%, 440px); margin: 0 auto; padding: 28px; border: 1px solid #e4def0; border-radius: 24px; background: #fff; box-shadow: 0 12px 35px rgba(40,27,75,.08); text-align: left; }
+.player-card h2 { margin: 0 0 8px; font-size: 26px; }
+.player-card p { margin: 0 0 20px; color: #716b83; line-height: 1.5; }
+.player-label { display: block; margin-bottom: 8px; color: #514a67; font-weight: 700; }
+#name { width: 100%; min-height: 56px; padding: 12px 14px; border: 1px solid #d8cfe7; border-radius: 14px; outline: none; color: #211d3c; font: inherit; font-size: 18px; }
+#name:focus { border-color: #8a6ad0; box-shadow: 0 0 0 3px rgba(138,106,208,.17); }
+.player-status { max-width: 440px; margin: 16px auto; padding: 18px; border-radius: 16px; color: #211d3c; background: rgba(255,255,255,.88); font-size: 22px; }
+.player-status:empty { display: none; }
+#val, #ranking { overflow-wrap: anywhere; }
+@media (max-width: 700px) { body { padding: 18px 14px; } .host-waiting { grid-template-columns: 1fr; } .lobby-card { padding: 22px; } }
+.waiting-card { text-align: center; color: #fff; background: linear-gradient(145deg, #1d204e, #342458); border-color: transparent; }
+.waiting-card p { color: #e6ddff; }
+.waiting-badge { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 20px; color: #33244d; background: #ffe085; font-size: 32px; font-weight: 900; }
+.waiting-tip { padding: 16px; border-radius: 14px; background: rgba(255,255,255,.1); color: #f8f6ff; line-height: 1.5; }
+.waiting-card .waiting-dots { margin: 18px 0 0; color: #c9b8ff; letter-spacing: .3em; animation: waiting-pulse 1.5s ease-in-out infinite; }
+@keyframes waiting-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .waiting-card .waiting-dots { animation: none; } }
