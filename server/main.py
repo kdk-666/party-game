@@ -234,11 +234,6 @@ async def ws_player(ws: WebSocket):
 
         if name is not None and game is not None and game.running:
             await game.remove_player(name)
-    except WebSocketDisconnect:
-        name = players.pop(ws, None)
-
-        if name is not None and game is not None and game.running:
-            await game.remove_player(name)
 
         current = preparation
         if name is not None and current is not None:
@@ -246,8 +241,6 @@ async def ws_player(ws: WebSocket):
                 if preparation is current and name in current.players:
                     current.remove_player(name)
                     await send_preparation_update(current)
-
-        await send_lobby()
 
         await send_lobby()
 
