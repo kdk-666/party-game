@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from server.games.red_light import RedLight
 from server.games.registry import GAME_REGISTRY
 from server.match import Match
+from server.preparation import GamePreparation
 
 app = FastAPI()
 WEB = Path(__file__).resolve().parent.parent / "web"
@@ -21,7 +22,9 @@ players = {}   # {WebSocket: 닉네임}
 game = None
 total_scores = {}
 match_task = None
+preparation = None
 INTERMISSION_SECONDS = 5
+PREPARATION_SECONDS = 60
 
 async def send_all(sockets, msg):
     text = json.dumps(msg)
@@ -56,13 +59,62 @@ def make_match_game(match, info):
     game = info["game_class"](names, to_everyone)
     game.running = True
     return game
-async def send_match_start(match, game_id, info):
-    await to_everyone({"type": "round_start", "data": {
-        "game_id": game_id,
-        "game_name": info["name"],
-        "round": match.completed_rounds + 1,
-        "total_rounds": len(match.game_ids),
+async def send_preparation_update(current):
+    # 준비 상태를 수정한 쪽에서 current.lock을 잡고 호출합니다.
+    if preparation is not current:
+        return
+    await to_everyone({"type": "preparation_update", "data": {
+        "token": current.token,
+        "players": sorted(current.players),
+        "ready": sorted(current.ready),
+        "remaining": current.remaining(),
     }})
+async def handle_ready(ws, data):
+    current = preparation
+    if current is None or ws not in players or not isinstance(data, dict):
+        return
+
+    async with current.lock:
+        if (
+            preparation is current
+            and ws in players
+            and data.get("token") == current.token
+            and current.remaining() > 0
+        ):
+            if current.mark_ready(players[ws]):
+                await send_preparation_update(current)
+async def prepare_match_round(match, game_id, info):
+    global preparation
+
+    connected = set(players.values())
+    names = [name for name in match.players if name in connected]
+    if not names:
+        return False
+
+    current = GamePreparation(names, PREPARATION_SECONDS)
+    preparation = current
+    try:
+        async with current.lock:
+            await to_everyone({"type": "round_start", "data": {
+                "game_id": game_id,
+                "game_name": info["name"],
+                "instructions": info.get("instructions", []),
+                "round": match.completed_rounds + 1,
+                "total_rounds": len(match.game_ids),
+                "token": current.token,
+                "players": sorted(current.players),
+                "ready": [],
+                "remaining": current.remaining(),
+            }})
+
+        can_start = await current.wait()
+        async with current.lock:
+            return can_start and any(name in players.values() for name in current.players)
+    finally:
+        if preparation is current:
+            preparation = None
+async def send_match_start(match, game_id, info):
+    return await prepare_match_round(match, game_id, info)
 
 
 async def send_match_result(match, game_id, result):
@@ -168,7 +220,11 @@ async def ws_player(ws: WebSocket):
                         "data": {"name": name}
                     })
                     await send_lobby()
+            elif msg["type"] == "ready":
+                    await handle_ready(ws, msg.get("data"))
             elif msg["type"] == "motion" and ws in players:
+                if preparation is not None:
+                    continue
                 v = msg["data"]["value"]
                 await to_hosts({"type": "motion", "data": {"name": players[ws], "value": v}})
                 if game:
@@ -178,6 +234,20 @@ async def ws_player(ws: WebSocket):
 
         if name is not None and game is not None and game.running:
             await game.remove_player(name)
+    except WebSocketDisconnect:
+        name = players.pop(ws, None)
+
+        if name is not None and game is not None and game.running:
+            await game.remove_player(name)
+
+        current = preparation
+        if name is not None and current is not None:
+            async with current.lock:
+                if preparation is current and name in current.players:
+                    current.remove_player(name)
+                    await send_preparation_update(current)
+
+        await send_lobby()
 
         await send_lobby()
 

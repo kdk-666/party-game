@@ -1,6 +1,7 @@
 ﻿<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/guide.css">
 <title>Motion Party</title>
 <body id="bg" style="font-family:sans-serif;text-align:center;transition:background .2s">
 <h1>Motion Party</h1>
@@ -12,11 +13,25 @@
 <p id="msg" style="font-size:28px"></p>
 <p id="val" style="font-size:30px"></p>
 <p id="ranking" style="font-size:24px;white-space:pre-line;color:#111"></p>
+<div id="game-guide" class="guide-overlay" hidden>
+  <section class="guide-card" role="dialog" aria-labelledby="guide-title">
+    <p id="guide-round" class="guide-kicker"></p>
+    <h2 id="guide-title"></h2>
+    <p class="guide-timer">시작까지 <strong id="guide-time">60</strong>초</p>
+    <ol id="guide-rules" class="guide-rules"></ol>
+    <p id="guide-summary" class="guide-summary" aria-live="polite"></p>
+    <ul id="guide-players" class="guide-players"></ul>
+    <button id="guide-ready" class="guide-button" type="button">준비 완료</button>
+    <p id="guide-hint" class="guide-hint">방법을 읽었다면 준비 버튼을 눌러 주세요.</p>
+  </section>
+</div>
+<script src="/static/guide.js"></script>
 <script>
 const ws = new WebSocket("wss://" + location.host + "/ws/player");
 const bg = document.getElementById("bg");
 const msgEl = document.getElementById("msg");
 let last = 0, myName = "";
+setupGameGuide(ws, () => myName);
 
 function startSensor() {
   window.addEventListener("devicemotion", (e) => {

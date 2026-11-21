@@ -74,7 +74,9 @@ class Match:
                 if game is None:
                     return False
                 if on_start is not None:
-                    await on_start(game_id, game_info)
+                    can_start = await on_start(game_id, game_info)
+                    if can_start is False:
+                        return False
                 result = await self.play_round(game_id, game)
             finally:
                 if self.active_game_id == game_id:

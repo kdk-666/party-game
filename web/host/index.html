@@ -1,5 +1,6 @@
 ﻿<!doctype html>
 <meta charset="utf-8">
+<link rel="stylesheet" href="/static/guide.css">
 <title>Motion Party</title>
 <body id="bg" style="font-family:sans-serif;text-align:center;transition:background .2s">
 <h1>Motion Party</h1>
@@ -14,7 +15,18 @@
 <div id="list" style="width:70%;margin:auto;font-size:22px;text-align:left"></div>
 <h2>게임 순위</h2>
 <div id="ranking" style="font-size:22px;white-space:pre-line"></div>
-
+<div id="game-guide" class="guide-overlay" hidden>
+  <section class="guide-card" role="dialog" aria-labelledby="guide-title">
+    <p id="guide-round" class="guide-kicker"></p>
+    <h2 id="guide-title"></h2>
+    <p class="guide-timer">시작까지 <strong id="guide-time">60</strong>초</p>
+    <ol id="guide-rules" class="guide-rules"></ol>
+    <p id="guide-summary" class="guide-summary" aria-live="polite"></p>
+    <ul id="guide-players" class="guide-players"></ul>
+    <p id="guide-hint" class="guide-hint">참가자 전원이 준비하면 바로 시작해요.</p>
+  </section>
+</div>
+<script src="/static/guide.js"></script>
 <script>
 const joinUrl = location.origin + "/play";
 document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
@@ -22,6 +34,7 @@ document.getElementById("url").textContent = joinUrl;
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
+setupGameGuide(ws, () => null);
 const bg = document.getElementById("bg");
 const status = document.getElementById("status");
 const rankingEl = document.getElementById("ranking");
