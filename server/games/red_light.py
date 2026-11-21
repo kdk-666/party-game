@@ -33,6 +33,7 @@ class RedLight:
         self.running = True
 
 
+
         await self.broadcast({"type": "countdown", "data": {}})
         await self.wait_or_end(3)
 
@@ -106,21 +107,19 @@ class RedLight:
 
         print("게임 점수:", scores, flush=True)
 
-        for name, score in scores.items():
-            if score is not None:
-                self.total_scores.setdefault(name, 0)
-                self.total_scores[name] += score
-        print("누적 점수:", self.total_scores, flush=True)
 
-        await self.broadcast({
-            "type": "game_over",
-            "data": {
-                "winner": winner,
-                "ranking": ranking,
-                "arrived": arrived,
-                "dist": self.dist
-            }
-        })
+
+        result = {
+            "winner": winner,
+            "ranking": ranking,
+            "eliminated": eliminated,
+            "scores": scores,
+            "arrived": arrived,
+            "dist": self.dist,
+        }
+
+        await self.broadcast({"type": "game_over", "data": result})
+        return result
 
     async def move_loop(self):
         # 0.1초마다 초록불인 동안 거리를 줄이고 화면에 알린다
