@@ -11,6 +11,7 @@
 </div>
 <p id="msg" style="font-size:28px"></p>
 <p id="val" style="font-size:30px"></p>
+<p id="ranking" style="font-size:24px;white-space:pre-line;color:#111"></p>
 <script>
 const ws = new WebSocket("wss://" + location.host + "/ws/player");
 const bg = document.getElementById("bg");
@@ -40,6 +41,7 @@ ws.onmessage = (e) => {
 } else if (msg.type === "join_error") {
   msgEl.textContent = d.message;
 } else if (msg.type === "countdown") {
+  document.getElementById("ranking").textContent = "";
   bg.style.background = "#fff";
   msgEl.textContent = "준비! 곧 시작해요";
 }
@@ -51,6 +53,11 @@ ws.onmessage = (e) => {
   } else if (msg.type === "game_over") {
     bg.style.background = "#fff";
     msgEl.textContent = d.winner === myName ? "🏆 우승!" : "게임 끝 (우승: " + d.winner + ")";
+    const ranking = d.ranking || [];
+
+    document.getElementById("ranking").textContent = ranking
+    .map((name, index) => (index + 1) + "등: " + name)
+    .join("\n");
   }
 };
 

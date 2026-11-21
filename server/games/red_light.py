@@ -4,7 +4,7 @@ import random
 GAME_TIME = 600.0  # 게임 제한 시간(초)
 THRESHOLD = 2.0      # 빨간불에 이 값보다 크게 움직이면 탈락
 GRACE = 0.5          # 빨간불 직후 봐주는 시간(초)
-START_DIST = 100.0   # 술래까지 거리(m)
+START_DIST = 10.0   # 술래까지 거리(m)
 MAX_SPEED = 5.0      # 최대 속도(m/초)
 SPEED_RATE = 1.0     # 움직임 값 1당 속도(m/초). 올리면 더 빨리 감
 TICK = 0.1           # 거리 갱신 간격(초)
@@ -13,9 +13,12 @@ MOTION_TIMEOUT = 0.5  # 0.5초 동안 새 센서 값이 없으면 움직임을 0
 
 class RedLight:
     def __init__(self, names, broadcast):
+
+
         self.dist = {n: START_DIST for n in names}   # 남은 거리
         self.motion = {n: 0.0 for n in names}        # 최근 움직임 값
         self.motion_time = {n: 0.0 for n in names}
+
         self.alive = set(names)
         self.connected = set(names)  # 게임에 연결되어 있는 참가자
         self.out = []
@@ -28,6 +31,7 @@ class RedLight:
 
     async def run(self):
         self.running = True
+
 
         await self.broadcast({"type": "countdown", "data": {}})
         await self.wait_or_end(3)
@@ -66,15 +70,53 @@ class RedLight:
 
         arrived = [name for name in self.arrived if name in self.connected]
 
-        if arrived:
-            winner = arrived[0]
-        else:
-            winner = min(self.connected, key=lambda name: self.dist[name])
+        survivors = sorted(
+            (name for name in self.dist
+             if name in self.connected and name not in self.out),
+            key=self.dist.get,
+        )
+
+        if arrived and arrived[0] in survivors:
+            survivors.remove(arrived[0])
+            survivors.insert(0, arrived[0])
+
+        eliminated = sorted(
+            (name for name in self.dist
+             if name in self.connected and name in self.out),
+            key=self.dist.get,
+        )
+
+        ranking = survivors + eliminated
+        winner = survivors[0] if survivors else None
+
+
+
+        print("게임 순위:", ranking, flush=True)
+
+        rank_points = [1000, 700, 500, 300]
+        scores = {}
+
+        for index, name in enumerate(ranking):
+            if name in self.out:
+                scores[name] = 100
+            elif index < len(rank_points):
+                scores[name] = rank_points[index]
+            else:
+                scores[name] = None
+
+        print("게임 점수:", scores, flush=True)
+
+        for name, score in scores.items():
+            if score is not None:
+                self.total_scores.setdefault(name, 0)
+                self.total_scores[name] += score
+        print("누적 점수:", self.total_scores, flush=True)
 
         await self.broadcast({
             "type": "game_over",
             "data": {
                 "winner": winner,
+                "ranking": ranking,
                 "arrived": arrived,
                 "dist": self.dist
             }
@@ -108,7 +150,7 @@ class RedLight:
         if not self.running or name not in self.alive:
             return
         self.motion[name] = value
-        self.motion_time[name] = time.time()
+        self.motion_time[name] = asyncio.get_running_loop().time()
         if self.state != "red":
             return
         if asyncio.get_event_loop().time() - self.red_since < GRACE:

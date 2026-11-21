@@ -16,6 +16,7 @@ WEB = Path(__file__).resolve().parent.parent / "web"
 hosts = []
 players = {}   # {WebSocket: 닉네임}
 game = None
+total_scores = {}
 
 
 async def send_all(sockets, msg):
@@ -32,6 +33,9 @@ async def to_hosts(msg):
 
 
 async def to_everyone(msg):
+    if msg.get("type") == "game_over":
+        msg["ranking"] = msg.get("data", {}).get("rankings", [])
+
     await send_all(hosts + list(players), msg)
 
 
@@ -50,6 +54,9 @@ async def ws_host(ws: WebSocket):
             msg = json.loads(await ws.receive_text())
             if msg["type"] == "start" and players and not (game and game.running):
                 game = RedLight(list(players.values()), to_everyone)
+                for name in players.values():
+                    total_scores.setdefault(name, 0)
+                game.total_scores = total_scores
                 game.running = True
                 asyncio.create_task(game.run())
     except WebSocketDisconnect:

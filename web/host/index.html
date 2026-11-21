@@ -12,6 +12,9 @@
 <h1 id="status"></h1>
 <h2>참가자 (술래까지 거리)</h2>
 <div id="list" style="width:70%;margin:auto;font-size:22px;text-align:left"></div>
+<h2>게임 순위</h2>
+<div id="ranking" style="font-size:22px;white-space:pre-line"></div>
+
 <script>
 const joinUrl = location.origin + "/play";
 document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
@@ -21,6 +24,7 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
 const bg = document.getElementById("bg");
 const status = document.getElementById("status");
+const rankingEl = document.getElementById("ranking");
 const list = document.getElementById("list");
 let names = [], alive = null, dist = {};
 const START = 100;
@@ -43,20 +47,29 @@ ws.onmessage = (e) => {
   const msg = JSON.parse(e.data), d = msg.data;
   if (msg.type === "lobby") { names = d.players; draw(); }
   else if (msg.type === "countdown") {
+    rankingEl.textContent = "";
     alive = null; dist = {}; bg.style.background = "#fff"; status.textContent = "준비하세요! 3초 후 시작"; draw();
   } else if (msg.type === "state") {
     alive = d.alive; draw();
     bg.style.background = d.state === "green" ? "#7bd88f" : "#ff6b6b";
     status.textContent = d.state === "green" ? "🟢 초록불: 흔들어서 앞으로!" : "🔴 빨간불: 멈춰!";
   } else if (msg.type === "dist") { dist = d.dist; alive = d.alive; draw(); }
-  else if (msg.type === "eliminated") { alive = d.alive; draw(); }
+  else if (msg.type === "eFliminated") { alive = d.alive; draw(); }
   else if (msg.type === "game_cancelled") {
   bg.style.background = "#fff";
   status.textContent = "참가자가 모두 나가 게임이 취소됐습니다.";
 }
   else if (msg.type === "game_over") {
-    dist = d.dist; draw(); bg.style.background = "#fff";
-    status.textContent = "🏆 우승: " + d.winner + (d.arrived.length ? " (도착!)" : " (가장 가까이 감)");
-  }
+  dist = d.dist;
+  draw();
+  bg.style.background = "#fff";
+
+  status.textContent = "🏆 우승: " + d.winner +
+    (d.arrived.length ? " (도착!)" : " (가장 가까이 감)");
+
+  rankingEl.textContent = (d.ranking || [])
+    .map((name, index) => (index + 1) + "등: " + name)
+    .join("\n");
+}
 };
 </script>
