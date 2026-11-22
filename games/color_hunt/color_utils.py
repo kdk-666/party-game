@@ -43,7 +43,7 @@ def similarity_score(target_rgb, photo_rgb):
     return round(max(0.0, 100.0 * (1 - d / MAX_DELTA_E)))
 
 
-# 화면의 동그라미 지름 = 사진 가로 길이의 이 비율 (web/colorhunt.css 의 .ch-aim width 와 같아야 한다)
+# 화면의 동그라미 지름 = 사진 가로 길이의 이 비율 (games/color_hunt/client/colorhunt.css 의 .ch-aim width 와 같아야 한다)
 CIRCLE_RATIO = 0.28
 
 

@@ -41,17 +41,29 @@
     <p id="guide-hint" class="guide-hint">방법을 읽었다면 준비 버튼을 눌러 주세요.</p>
   </section>
 </div>
-<link rel="stylesheet" href="/static/colorhunt.css">
-<div id="ch-screen" class="ch-screen" hidden></div>
+<!-- GAME_ASSETS -->
 <script src="/static/guide.js"></script>
-<script src="/static/colorhunt.js"></script>
+<script src="/static/game-router.js"></script>
 <script>
 const ws = new WebSocket("wss://" + location.host + "/ws/player");
 const bg = document.getElementById("bg");
 const msgEl = document.getElementById("msg");
 let last = 0, myName = "";
 setupGameGuide(ws, () => myName);
-setupColorHunt(ws, "player", () => myName);
+ws.addEventListener("message", event => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === "countdown") {
+    document.getElementById("player-waiting").hidden = true;
+    document.getElementById("ranking").textContent = "";
+    bg.style.background = "#fff";
+    msgEl.textContent = "준비! 곧 시작해요";
+  }
+});
+if (!setupGameRouter(ws, "player", () => myName)) {
+  ws.close();
+  document.getElementById("btn").disabled = true;
+  msgEl.textContent = "게임 화면을 불러오지 못했어요. 새로고침해 주세요.";
+}
 
 function startSensor() {
   window.addEventListener("devicemotion", (e) => {
@@ -68,33 +80,14 @@ function startSensor() {
 ws.onmessage = (e) => {
   const msg = JSON.parse(e.data), d = msg.data;
   if (msg.type === "join_ok") {
-  myName = d.name;
-  document.getElementById("form").style.display = "none";
-  document.getElementById("waiting-name").textContent = myName;
-  document.getElementById("player-waiting").hidden = false;
-  msgEl.textContent = "";
-  startSensor();
-} else if (msg.type === "join_error") {
-  msgEl.textContent = d.message;
-} else if (msg.type === "countdown") {
-  document.getElementById("player-waiting").hidden = true;
-  document.getElementById("ranking").textContent = "";
-  bg.style.background = "#fff";
-  msgEl.textContent = "준비! 곧 시작해요";
-}
-  else if (msg.type === "state") {
-    bg.style.background = d.state === "green" ? "#7bd88f" : "#ff6b6b";
-    msgEl.textContent = d.state === "green" ? "움직여!" : "멈춰!";
-  } else if (msg.type === "eliminated" && d.name === myName) {
-    bg.style.background = "#555"; msgEl.textContent = "탈락 😢";
-  } else if (msg.type === "game_over") {
-    bg.style.background = "#fff";
-    msgEl.textContent = d.winner === myName ? "🏆 우승!" : "게임 끝 (우승: " + d.winner + ")";
-    const ranking = d.ranking || [];
-
-    document.getElementById("ranking").textContent = ranking
-    .map((name, index) => (index + 1) + "등: " + name)
-    .join("\n");
+    myName = d.name;
+    document.getElementById("form").style.display = "none";
+    document.getElementById("waiting-name").textContent = myName;
+    document.getElementById("player-waiting").hidden = false;
+    msgEl.textContent = "";
+    startSensor();
+  } else if (msg.type === "join_error") {
+    msgEl.textContent = d.message;
   }
 };
 

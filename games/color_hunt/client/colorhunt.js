@@ -1,3 +1,6 @@
+function setupColorHuntUI(ws, role, getName) {
+  setupColorHunt(ws, role, getName);
+}
 // 컬러헌트 화면. 호스트(노트북)와 플레이어(폰)가 같은 파일을 쓴다.
 // 사용법: setupColorHunt(ws, "host" 또는 "player", () => 내 닉네임)
 function setupColorHunt(ws, role, getName) {
@@ -8,7 +11,14 @@ function setupColorHunt(ws, role, getName) {
     document.head.appendChild(meta);
   }
   document.documentElement.style.colorScheme = "light";
-  const root = document.getElementById("ch-screen");
+  let root = document.getElementById("ch-screen");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "ch-screen";
+    root.className = "ch-screen";
+    root.hidden = true;
+    document.body.appendChild(root);
+  }
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const rgbCss = (c) => c ? "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")" : "#eee";
   let timerId = null, deadline = 0, submitted = false, photoData = null, round = null;

@@ -4,8 +4,8 @@ import io
 
 from PIL import Image
 
-from server.games import color_hunt
-from server.games.color_hunt import ColorHunt
+from games.color_hunt import game as color_hunt
+from games.color_hunt.game import ColorHunt
 
 
 def data_url(color):

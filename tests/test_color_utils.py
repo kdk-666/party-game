@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from server.games.color_utils import (
+from games.color_hunt.color_utils import (
     center_average_color, color_distance, hex_to_rgb, similarity_score)
 
 

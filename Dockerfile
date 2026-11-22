@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server/ server/
+COPY games/ games/
 COPY web/ web/
 
 EXPOSE 8000

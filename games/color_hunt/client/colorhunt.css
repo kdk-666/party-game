@@ -1,4 +1,6 @@
 /* 이 게임은 색이 핵심이라 항상 밝은 모드로 고정한다 (강제 다크모드가 색을 바꾸는 것을 막음) */
+
+
 :root { color-scheme: light; }
 .ch-swatch, .ch-chip, .ch-aim { forced-color-adjust: none; }
 
@@ -15,6 +17,6 @@
 .ch-note { color: #666; font-size: 18px; }
 .ch-cam { position: relative; display: inline-block; }
 .ch-cam video { max-width: 90vw; max-height: 300px; border-radius: 12px; background: #000; display: block; }
-/* 촬영 영역 표시: 제시된 색의 원 테두리만 (색은 colorhunt.js 에서 칠한다). 지름은 server/games/color_utils.py 의 CIRCLE_RATIO 와 같아야 한다 */
+/* 촬영 영역 표시: 제시된 색의 원 테두리만 (색은 colorhunt.js 에서 칠한다). 지름은 games/color_hunt/color_utils.py 의 CIRCLE_RATIO 와 같아야 한다 */
 .ch-aim { position: absolute; left: 36%; top: 50%; width: 28%; aspect-ratio: 1 / 1; transform: translateY(-50%); pointer-events: none; }
 .ch-banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; background: #b91c1c; color: #fff; padding: 10px; font-size: 16px; text-align: center; }

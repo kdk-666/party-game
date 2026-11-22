@@ -5,17 +5,30 @@ from pathlib import Path
 
 import qrcode
 import qrcode.image.svg
+
+from fastapi import HTTPException
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from server.games.red_light import RedLight
+from games.red_light.game import RedLight
+from server.game_pages import render_game_page as build_game_page
 from server.games.registry import GAME_REGISTRY
 from server.match import Match
 from server.preparation import GamePreparation
 
+class PublicStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        parts = path.replace("\\", "/").split("/")
+        if any(part.startswith(".") for part in parts if part):
+            raise HTTPException(status_code=404, detail="Not Found")
+        return await super().get_response(path, scope)
+
+
+
 app = FastAPI()
 WEB = Path(__file__).resolve().parent.parent / "web"
+GAMES = Path(__file__).resolve().parent.parent / "games"
 MAX_PLAYERS = 4
 hosts = []
 players = {}   # {WebSocket: 닉네임}
@@ -259,13 +272,20 @@ def qr(url: str):
 
 @app.get("/")
 def host_page():
-    return FileResponse(WEB / "host" / "index.html")
+    return build_game_page("host", GAME_REGISTRY, GAMES, WEB)
 
 
 @app.get("/play")
 def player_page():
-    return FileResponse(WEB / "player" / "index.html")
+    return build_game_page("player", GAME_REGISTRY, GAMES, WEB)
 
 
-app.mount("/static", StaticFiles(directory=WEB), name="static")
-
+app.mount("/static", PublicStaticFiles(directory=WEB), name="static")
+for game_id in GAME_REGISTRY:
+    client_dir = GAMES / game_id / "client"
+    if client_dir.is_dir():
+        app.mount(
+            f"/game-assets/{game_id}",
+            PublicStaticFiles(directory=client_dir),
+            name=f"game-assets-{game_id}",
+        )

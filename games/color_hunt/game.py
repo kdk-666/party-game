@@ -3,7 +3,7 @@ import asyncio
 import base64
 import random
 
-from server.games.color_utils import center_average_color, hex_to_rgb, similarity_score
+from games.color_hunt.color_utils import center_average_color, hex_to_rgb, similarity_score
 
 ROUNDS = 3               # 한 게임에서 제시하는 색의 개수
 COUNTDOWN = 3            # 시작 전 대기(초)
