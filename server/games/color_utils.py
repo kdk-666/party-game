@@ -1,7 +1,7 @@
-﻿"""컬러헌트용 색 계산 도구 (게임 규칙과 분리해 단독으로 테스트할 수 있게 함)."""
+"""컬러헌트용 색 계산 도구 (게임 규칙과 분리해 단독으로 테스트할 수 있게 함)."""
 import io
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageStat
 
 # 두 색의 거리(deltaE)가 이 값 이상이면 0점. 클수록 점수가 관대해진다.
 MAX_DELTA_E = 70.0
@@ -43,12 +43,18 @@ def similarity_score(target_rgb, photo_rgb):
     return round(max(0.0, 100.0 * (1 - d / MAX_DELTA_E)))
 
 
-def center_average_color(image_bytes, ratio=0.4):
-    """사진 가운데 영역(기본 40%)의 평균색을 (r, g, b)로 돌려준다."""
+# 화면의 동그라미 지름 = 사진 가로 길이의 이 비율 (web/colorhunt.css 의 .ch-aim width 와 같아야 한다)
+CIRCLE_RATIO = 0.28
+
+
+def center_average_color(image_bytes, ratio=CIRCLE_RATIO):
+    """사진 가운데 '원' 안쪽의 평균색을 (r, g, b)로 돌려준다. 지름 = 가로 길이 x ratio."""
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     w, h = img.size
-    cw, ch = int(w * ratio), int(h * ratio)
-    left, top = (w - cw) // 2, (h - ch) // 2
-    crop = img.crop((left, top, left + max(cw, 1), top + max(ch, 1)))
-    r, g, b = crop.resize((1, 1), Image.BOX).getpixel((0, 0))
-    return (r, g, b)
+    d = max(2, min(int(w * ratio), w, h))          # 원의 지름(픽셀)
+    left, top = (w - d) // 2, (h - d) // 2
+    crop = img.crop((left, top, left + d, top + d))
+    mask = Image.new("L", (d, d), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, d - 1, d - 1), fill=255)   # 원 안쪽만 255
+    r, g, b = ImageStat.Stat(crop, mask).mean
+    return (round(r), round(g), round(b))

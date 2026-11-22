@@ -147,6 +147,7 @@ async def run_match(match):
         if completed:
             await send_match_over(match)
         else:
+            print('대회 취소됨', flush=True)
             await to_everyone({"type": "match_cancelled", "data": {}})
     except Exception:
         logging.exception("대회 진행 중 오류가 발생했습니다.")
@@ -220,6 +221,9 @@ async def ws_player(ws: WebSocket):
                         "data": {"name": name}
                     })
                     await send_lobby()
+            elif msg["type"] == "photo" and ws in players:
+                if game is not None and hasattr(game, "on_photo"):
+                    await game.on_photo(players[ws], msg.get("data"))
             elif msg["type"] == "ready":
                     await handle_ready(ws, msg.get("data"))
             elif msg["type"] == "motion" and ws in players:
@@ -231,6 +235,7 @@ async def ws_player(ws: WebSocket):
                     await game.on_motion(players[ws], v)
     except WebSocketDisconnect:
         name = players.pop(ws, None)
+        print('연결 끊김:', name, '| 남은 참가자:', list(players.values()), flush=True)
 
         if name is not None and game is not None and game.running:
             await game.remove_player(name)
@@ -263,3 +268,4 @@ def player_page():
 
 
 app.mount("/static", StaticFiles(directory=WEB), name="static")
+

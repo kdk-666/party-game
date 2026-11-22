@@ -1,4 +1,4 @@
-﻿import io
+import io
 
 from PIL import Image
 
@@ -44,3 +44,14 @@ def test_center_average_ignores_border():
 
 def test_center_average_of_flat_image():
     assert center_average_color(make_png((10, 200, 50))) == (10, 200, 50)
+
+
+def test_circle_ignores_outside_of_circle():
+    # 파랑 배경, 지름 28인 원 바로 바깥(모서리)에만 빨강을 칠하면 점수 계산에 안 들어가야 한다
+    img = Image.new("RGB", (100, 100), (0, 0, 255))
+    for x, y in [(36, 36), (63, 36), (36, 63), (63, 63)]:      # 정사각형 모서리 = 원 밖
+        img.putpixel((x, y), (255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    r, g, b = center_average_color(buf.getvalue())
+    assert r < 5 and b > 250

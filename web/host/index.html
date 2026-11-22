@@ -46,7 +46,10 @@
     <p id="guide-hint" class="guide-hint">참가자 전원이 준비하면 바로 시작해요.</p>
   </section>
 </div>
+<link rel="stylesheet" href="/static/colorhunt.css">
+<div id="ch-screen" class="ch-screen" hidden></div>
 <script src="/static/guide.js"></script>
+<script src="/static/colorhunt.js"></script>
 <script src="/static/host-lobby.js"></script>
 <script>
 const joinUrl = location.origin + "/play";
@@ -56,6 +59,7 @@ document.getElementById("url").textContent = joinUrl;
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
 setupGameGuide(ws, () => null);
+setupColorHunt(ws, "host", () => null);
 setupHostLobby(ws);
 const bg = document.getElementById("bg");
 const status = document.getElementById("status");

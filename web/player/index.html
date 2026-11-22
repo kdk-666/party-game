@@ -41,13 +41,17 @@
     <p id="guide-hint" class="guide-hint">방법을 읽었다면 준비 버튼을 눌러 주세요.</p>
   </section>
 </div>
+<link rel="stylesheet" href="/static/colorhunt.css">
+<div id="ch-screen" class="ch-screen" hidden></div>
 <script src="/static/guide.js"></script>
+<script src="/static/colorhunt.js"></script>
 <script>
 const ws = new WebSocket("wss://" + location.host + "/ws/player");
 const bg = document.getElementById("bg");
 const msgEl = document.getElementById("msg");
 let last = 0, myName = "";
 setupGameGuide(ws, () => myName);
+setupColorHunt(ws, "player", () => myName);
 
 function startSensor() {
   window.addEventListener("devicemotion", (e) => {
