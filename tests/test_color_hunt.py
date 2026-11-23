@@ -67,6 +67,9 @@ def test_bad_image_and_missing_submission(monkeypatch):
     result = asyncio.run(scenario())
     assert "ch_photo_error" in sent
     assert result["totals"] == {"a": 0, "b": 0}     # 아무도 못 내면 0점
+    assert result["scores"] == {"a": 0, "b": 0}
+    assert result["winner"] is None
+    assert set(result["not_submitted"]) == {"a", "b"}
 
 
 def test_everyone_left_cancels(monkeypatch):

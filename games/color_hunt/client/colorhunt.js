@@ -205,12 +205,15 @@ function setupColorHunt(ws, role, getName) {
     stopCamera();
     clearInterval(timerId);
     root.hidden = false;
+    const noSubmissions = new Set(d.not_submitted || []);
     const rows = d.ranking.map((n, i) =>
-      '<div class="ch-row"><b>' + (i + 1) + '등</b><span>' + esc(n) + '</span><span>' + d.totals[n] + '점</span></div>').join("");
+      '<div class="ch-row ch-final-row"><b>' + (noSubmissions.has(n) ? '미제출' : (i + 1) + '등') +
+      '</b><span>' + esc(n) + '</span><span>색상 ' + d.totals[n] + '점 · 대회 ' + d.scores[n] + '점</span></div>').join("");
     const closeBtn = '<button id="ch-close" class="ch-btn sub">닫기</button>';
     const me = role === "player" ? getName() : null;
-    root.innerHTML = '<p class="ch-big">🏆 컬러헌트 결과</p>' +
-      (me && d.winner === me ? '<p class="ch-big">우승!</p>' : '') + rows + '<br>' + closeBtn;
+    const winnerText = d.winner === null ? '<p class="ch-note">우승자 없음 (전원 미제출)</p>' :
+      (me && d.winner === me ? '<p class="ch-big">우승!</p>' : '');
+    root.innerHTML = '<p class="ch-big">🏆 컬러헌트 결과</p>' + winnerText + rows + '<br>' + closeBtn;
     document.getElementById("ch-close").onclick = hide;
   }
 

@@ -31,6 +31,7 @@ class ColorHunt:
         self.totals = {n: 0 for n in names}
         self.round_scores = {}     # 이번 색에서 낸 사람 -> 점수
         self.round_rgb = {}        # 이번 색에서 낸 사람 -> 사진 평균색
+        self.submitted = set()     # 게임 중 유효한 사진을 한 번 이상 낸 사람
         self.target = None
         self.accepting = False     # 지금 사진을 받는 중인가
         self.running = False
@@ -53,14 +54,18 @@ class ColorHunt:
             await self.broadcast({"type": "game_cancelled", "data": {}})
             return None
 
-        ranking = sorted(self.connected, key=lambda n: -self.totals[n])
+        eligible = sorted(self.connected & self.submitted, key=lambda n: -self.totals[n])
+        not_submitted = sorted(self.connected - self.submitted)
+        ranking = eligible + not_submitted
         scores = {}
-        for i, n in enumerate(ranking):
-            first = next(j for j, m in enumerate(ranking) if self.totals[m] == self.totals[n])
+        for i, n in enumerate(eligible):
+            first = next(j for j, m in enumerate(eligible) if self.totals[m] == self.totals[n])
             scores[n] = RANK_POINTS[first] if first < len(RANK_POINTS) else 100
+        scores.update({n: 0 for n in not_submitted})
         result = {
-            "winner": ranking[0],
+            "winner": eligible[0] if eligible else None,
             "ranking": ranking,
+            "not_submitted": not_submitted,
             "totals": {n: self.totals[n] for n in ranking},
             "scores": scores,
         }
@@ -109,6 +114,7 @@ class ColorHunt:
             return
         self.round_scores[name] = similarity_score(self.target, rgb)
         self.round_rgb[name] = list(rgb)
+        self.submitted.add(name)
         await self.broadcast({"type": "ch_submitted", "data": {"names": sorted(self.round_scores)}})
         self._check_all_in()
 
