@@ -15,18 +15,25 @@ COUNT_FROM = 3           # 카운트다운 시작 숫자
 TICK = 1 / 30            # 초당 30번 위치를 보낸다
 
 
+_last_maze = None            # 가장 최근에 쓴 미로 이름 (연속으로 같은 미로가 나오지 않게)
+
+
 class TiltBall:
     def __init__(self, names, broadcast):
         self.names = list(names)
         self.connected = set(names)
         self.broadcast = broadcast
-        m = random.choice(MAZES)
-        self.maze = Maze(m["name"], m["rows"])
+        global _last_maze
+        pool = [m for m in MAZES if m["name"] != _last_maze] or MAZES        # 직전 판과 같은 미로는 피한다
+        m = random.choice(pool)
+        _last_maze = m["name"]
+        self.maze = Maze(m["name"], m["rows"], m.get("level", 0))
         self.world = TiltWorld(self.maze, self.names, time_limit=TIME_LIMIT)
         self.phase = "intro"             # intro -> count -> race -> over
         self.ready = set()
         self.ready_event = asyncio.Event()
         self.last_ts = {}                # 폰이 보낸 시각 (지연 시간 계산용으로 돌려준다)
+        self.end_reason = "time"         # 끝난 이유: all_finished(모두 도착) / last_one(마지막 한 명만 남음) / time(시간 끝)
         self.running = False
 
     # ----- 진행 -----
@@ -34,7 +41,7 @@ class TiltBall:
         self.running = True
         await self.broadcast({"type": "countdown", "data": {}})       # 설명 화면을 닫고 게임 화면을 연다
         await self.broadcast({"type": "tb_intro", "data": {
-            "maze": {"name": self.maze.name, "rows": self.maze.rows},
+            "maze": {"name": self.maze.name, "rows": self.maze.rows, "level": self.maze.level},
             "names": self.names, "time_limit": TIME_LIMIT, "timeout": INTRO_TIMEOUT}})
         try:
             await asyncio.wait_for(self.ready_event.wait(), timeout=INTRO_TIMEOUT)
@@ -59,7 +66,8 @@ class TiltBall:
         results = {n: {"finish_time": None if b.finish_time is None else round(b.finish_time, 2),
                        "progress": round(b.best_progress, 3), "falls": b.falls}
                    for n, b in self.world.balls.items()}
-        result = {"winner": ranking[0], "ranking": ranking, "scores": self.world.scores(), "results": results}
+        result = {"winner": ranking[0], "ranking": ranking, "scores": self.world.scores(), "results": results,
+                  "reason": self.end_reason}
         await self.broadcast({"type": "tb_over", "data": result})
         return result
 
@@ -80,6 +88,17 @@ class TiltBall:
                 "t": round(self.world.time, 2),
                 "left": round(max(0.0, self.world.time_limit - self.world.time), 1),
                 "players": self.world.snapshot(), "ts": self.last_ts}})
+            # 2명 이상이면 아직 못 들어온 사람이 한 명만 남았을 때 바로 끝낸다 (그 한 명은 지금까지 간 거리로 순위가 정해진다)
+            balls = self.world.balls
+            unfinished = [n for n, b in balls.items() if b.finish_time is None]
+            if not unfinished:
+                self.end_reason = "all_finished"
+                break
+            if len(balls) >= 2 and len(unfinished) == 1:
+                self.end_reason = "last_one"
+                break
+        else:
+            self.end_reason = "time"
 
     # ----- 폰이 보낸 메시지 (main.py가 모르는 메시지를 그대로 넘겨 준다) -----
     async def on_message(self, name, kind, data):

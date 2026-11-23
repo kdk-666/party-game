@@ -1,4 +1,4 @@
-import math
+﻿import math
 import random
 
 import pytest
@@ -244,3 +244,38 @@ def test_skilled_player_can_finish_well_within_time(maze):
 def test_careful_player_with_half_tilt_can_still_finish(maze):
     b = run_bot(maze, max_tilt=0.5)
     assert b.finish_time is not None and b.finish_time < 60
+
+
+# ---------- 미로 밸런스 (새 미로를 추가할 때 이 기준을 지켜야 한다) ----------
+def test_mazes_are_balanced_and_fair():
+    names = set()
+    for m in MAZES:
+        assert m["name"] not in names                              # 이름이 겹치지 않는다
+        names.add(m["name"])
+        assert m["level"] in (1, 2, 3)                              # 난이도 1~3
+        mz = Maze(m["name"], m["rows"], m["level"])
+        assert mz.width <= 13 and mz.height <= 20                   # 폰/노트북 화면에 무리 없는 크기
+        assert 35 <= len(mz.safe_path()) <= 55                      # 길이가 비슷해야 한 판 시간이 비슷하다
+        assert len(mz.checkpoints) >= 2 and len(mz.holes) <= 12     # 깃발은 2개 이상, 구멍은 12개 이하
+        for spot in [mz.start, mz.goal, *mz.checkpoints]:           # 출발/도착/깃발은 구멍과 붙어 있지 않다
+            for h in mz.holes:
+                assert abs(spot[0] - h[0]) + abs(spot[1] - h[1]) >= 2, (m["name"], spot, h)
+        assert 14 <= run_bot(mz).finish_time <= 26, m["name"]       # 연습 봇이 14~26초에 도착
+
+
+def test_each_segment_of_a_level2_course_has_2_to_4_holes():
+    """난이도 2 이상 코스는 체크포인트로 나눈 구간마다 구멍이 2~4개여야 한다 (구불구불 길은 기본 코스라 예외)."""
+    checked = 0
+    for m in MAZES:
+        if m["level"] < 2:
+            continue
+        counts = Maze(m["name"], m["rows"], m["level"]).holes_per_segment()
+        assert len(counts) >= 3 and all(0 <= c <= 4 for c in counts), (m["name"], counts)
+        checked += 1
+    assert checked >= 1
+
+
+def test_there_are_at_least_nine_courses():
+    assert len(MAZES) >= 9
+    assert {m["level"] for m in MAZES} >= {1, 2}
+
