@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="color-scheme" content="light">
+<title>공 굴리기 테스트</title>
+<style>
+  :root { color-scheme: light; }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none;
+               font-family: sans-serif; background: #fff; color: #111; -webkit-user-select: none; user-select: none; }
+  #start-box { padding: 24px; text-align: center; }
+  #start-box button, .btn { font-size: 20px; padding: 12px 24px; border: 0; border-radius: 12px; background: #3b82f6; color: #fff; margin: 6px; }
+  .btn.sub { background: #6b7280; }
+  #play { display: none; position: fixed; inset: 0; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 10px; background: rgba(255,255,255,.88);
+         font-size: 14px; line-height: 1.5; }
+  #hud .row { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  #banner { position: absolute; top: 0; left: 0; right: 0; padding: 10px; text-align: center; font-size: 18px; font-weight: bold;
+            background: rgba(255,255,255,.9); display: none; }
+  #warn { color: #b91c1c; }
+  #toast { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); padding: 10px 22px; border-radius: 999px;
+           background: #fbbf24; color: #3b2a00; font-size: 20px; font-weight: bold; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  input[type=range] { width: 160px; vertical-align: middle; }
+</style>
+<body>
+<div id="start-box">
+  <h2>기울여서 공 굴리기 (테스트)</h2>
+  <p>폰을 <b>세로</b>로 편하게 잡고 <b>시작</b>을 누르세요.<br>누른 순간의 각도가 "평평한 상태"(기준)가 돼요.</p>
+  <button id="start">시작</button>
+  <p id="note" style="color:#b91c1c"></p>
+  <p style="font-size:13px;color:#555">노트북에서는 방향키로 기울기를 흉내 낼 수 있어요.</p>
+</div>
+
+<div id="play">
+  <canvas id="cv"></canvas>
+  <div id="toast"></div>
+  <div id="banner"></div>
+  <div id="hud">
+    <div class="row">
+      <span>연결: <b id="s-conn">-</b></span>
+      <span>센서: <b id="s-sensor">-</b></span>
+      <span>화면 꺼짐 방지: <b id="s-wake">-</b></span>
+      <span>지연: <b id="s-lat">-</b></span>
+    </div>
+    <div class="row">
+      <span>기울기 x: <b id="s-tx">0</b></span><span>y: <b id="s-ty">0</b></span>
+      <span>(beta <span id="s-beta">-</span>°, gamma <span id="s-gamma">-</span>°)</span>
+    </div>
+    <div class="row">
+      <span>민감도: <input id="sens" type="range" min="10" max="45" step="1"> <b id="sens-v"></b>°에서 최대</span>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="flip-x"> 좌우 반대로</label>
+      <label><input type="checkbox" id="flip-y"> 앞뒤 반대로</label>
+    </div>
+    <div class="row">
+      <button class="btn sub" id="recal">다시 보정</button>
+      <button class="btn sub" id="reset">처음부터</button>
+      <span id="warn"></span>
+    </div>
+  </div>
+</div>
+<script src="/static/tilt-test.js"></script>

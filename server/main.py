@@ -16,17 +16,21 @@ from server.game_pages import render_game_page as build_game_page
 from server.games.registry import GAME_REGISTRY
 from server.match import Match
 from server.preparation import GamePreparation
+from server.tilt_test import install_tilt_test
 
 class PublicStaticFiles(StaticFiles):
     async def get_response(self, path, scope):
         parts = path.replace("\\", "/").split("/")
         if any(part.startswith(".") for part in parts if part):
             raise HTTPException(status_code=404, detail="Not Found")
-        return await super().get_response(path, scope)
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 
 app = FastAPI()
+install_tilt_test(app)
 WEB = Path(__file__).resolve().parent.parent / "web"
 GAMES = Path(__file__).resolve().parent.parent / "games"
 MAX_PLAYERS = 4
@@ -246,6 +250,9 @@ async def ws_player(ws: WebSocket):
                 await to_hosts({"type": "motion", "data": {"name": players[ws], "value": v}})
                 if game:
                     await game.on_motion(players[ws], v)
+            elif ws in players and game is not None and hasattr(game, "on_message"):
+                # 위에서 처리하지 않은 메시지는 지금 진행 중인 게임이 직접 처리한다
+                await game.on_message(players[ws], msg["type"], msg.get("data"))
     except WebSocketDisconnect:
         name = players.pop(ws, None)
         print('연결 끊김:', name, '| 남은 참가자:', list(players.values()), flush=True)

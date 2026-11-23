@@ -1,0 +1,26 @@
+/* 기울여서 공 굴리기 화면 (폰/노트북 공용). 색은 캔버스로 그려서 폰의 강제 다크모드 영향을 안 받는다 */
+:root { color-scheme: light; }
+.tb-screen { position: fixed; inset: 0; z-index: 40; background: #1f2937; color: #111; font-family: sans-serif;
+             overflow: hidden; touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+.tb-screen[hidden] { display: none; }
+.tb-screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tb-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(88%, 520px);
+           background: #fff; border-radius: 20px; padding: 22px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+.tb-card h2 { margin: 0 0 8px; }
+.tb-card p { margin: 6px 0; }
+.tb-btn { font-size: 22px; padding: 14px 28px; margin: 10px 6px 0; border: 0; border-radius: 14px; background: #3b82f6; color: #fff; }
+.tb-btn.sub { background: #6b7280; }
+.tb-btn[disabled] { opacity: .5; }
+.tb-note { color: #b91c1c; min-height: 1.3em; }
+.tb-count { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-size: 120px; font-weight: bold; color: #fff;
+            text-shadow: 0 4px 16px rgba(0,0,0,.6); pointer-events: none; }
+.tb-hud { position: absolute; left: 0; right: 0; top: 0; padding: 8px 12px; display: flex; justify-content: space-between;
+          color: #fff; font-size: 18px; font-weight: bold; text-shadow: 0 1px 4px rgba(0,0,0,.7); pointer-events: none; }
+.tb-toast { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); padding: 10px 22px; border-radius: 999px;
+            background: #fbbf24; color: #3b2a00; font-size: 20px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.tb-banner { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 22px; border-radius: 14px;
+             background: rgba(0,0,0,.7); color: #fff; font-size: 20px; font-weight: bold; white-space: nowrap; }
+.tb-toast[hidden], .tb-banner[hidden], .tb-count[hidden], .tb-card[hidden], .tb-hud[hidden] { display: none; }
+.tb-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0; font-size: 20px; }
+.tb-chip { width: 18px; height: 18px; border-radius: 50%; flex: none; border: 2px solid #fff; box-shadow: 0 0 0 1px #999; }
+.tb-small { font-size: 14px; color: #555; }
