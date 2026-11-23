@@ -8,16 +8,17 @@ from games.color_hunt import game as color_hunt
 from games.color_hunt.game import ColorHunt
 
 
-def data_url(color):
+def data_url(color, round_token):
     buf = io.BytesIO()
     Image.new("RGB", (60, 60), color).save(buf, "JPEG")
-    return {"image": "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()}
+    return {"image": "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode(),
+            "round_token": round_token}
 
 
 def fast(monkeypatch):
     monkeypatch.setattr(color_hunt, "COUNTDOWN", 0)
     monkeypatch.setattr(color_hunt, "RESULT_SECONDS", 0)
-    monkeypatch.setattr(color_hunt, "ROUND_SECONDS", 1)
+    monkeypatch.setattr(color_hunt, "ROUND_SECONDS", 2)
     monkeypatch.setattr(color_hunt, "ROUNDS", 2)
 
 
@@ -38,8 +39,8 @@ def test_closer_color_wins(monkeypatch):
             while rounds_started() < i + 1 or not g.accepting:
                 await asyncio.sleep(0.01)
             t = tuple(g.target)
-            await g.on_photo("a", data_url(t))                        # 같은 색
-            await g.on_photo("b", data_url((255 - t[0], 255 - t[1], 255 - t[2])))
+            await g.on_photo("a", data_url(t, g.round_token))         # 같은 색
+            await g.on_photo("b", data_url((255 - t[0], 255 - t[1], 255 - t[2]), g.round_token))
         return await task
 
     result = asyncio.run(scenario())
@@ -60,7 +61,7 @@ def test_bad_image_and_missing_submission(monkeypatch):
         task = asyncio.create_task(g.run())
         while not g.accepting:
             await asyncio.sleep(0.01)
-        await g.on_photo("a", {"image": "not-base64!!"})   # 깨진 데이터는 에러 메시지만
+        await g.on_photo("a", {"image": "not-base64!!", "round_token": g.round_token})  # 깨진 데이터는 에러 메시지만
         await g.on_photo("b", None)
         return await task
 

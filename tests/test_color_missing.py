@@ -30,7 +30,7 @@ def run_rounds(monkeypatch, names, submissions, similarity=50):
         for index, submitted in enumerate(submissions):
             await asyncio.wait_for(wait_for_round(index), timeout=2)
             for name in submitted:
-                await game.on_photo(name, {"image": "data:image/jpeg;base64,YQ=="})
+                await game.on_photo(name, {"image": "data:image/jpeg;base64,YQ==", "round_token": game.round_token})
             # 미제출자가 있으면 제한시간이 끝난 것처럼 라운드를 종료한다.
             game.all_in.set()
         result = await task
