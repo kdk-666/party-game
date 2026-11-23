@@ -2,6 +2,7 @@
 import asyncio
 import base64
 import random
+import secrets
 
 from games.color_hunt.color_utils import center_average_color, hex_to_rgb, similarity_score
 
@@ -33,6 +34,8 @@ class ColorHunt:
         self.round_rgb = {}        # 이번 색에서 낸 사람 -> 사진 평균색
         self.submitted = set()     # 게임 중 유효한 사진을 한 번 이상 낸 사람
         self.target = None
+        self.round_token = None
+        self.round_deadline = None
         self.accepting = False     # 지금 사진을 받는 중인가
         self.running = False
         self.all_in = asyncio.Event()
@@ -77,14 +80,18 @@ class ColorHunt:
         self.round_scores = {}
         self.round_rgb = {}
         self.all_in.clear()
+        self.round_token = secrets.token_urlsafe(16)
+        self.round_deadline = asyncio.get_running_loop().time() + ROUND_SECONDS
         self.accepting = True
         await self.broadcast({"type": "ch_round", "data": {
             "index": index + 1, "total": total, "color_name": color_name,
-            "hex": hex_color, "seconds": ROUND_SECONDS}})
-        try:
-            await asyncio.wait_for(self.all_in.wait(), timeout=ROUND_SECONDS)
-        except asyncio.TimeoutError:
-            pass
+            "hex": hex_color, "seconds": ROUND_SECONDS, "round_token": self.round_token}})
+        remaining = max(0, self.round_deadline - asyncio.get_running_loop().time())
+        if remaining > 0 and not self.all_in.is_set():
+            try:
+                await asyncio.wait_for(self.all_in.wait(), timeout=remaining)
+            except asyncio.TimeoutError:
+                pass
         self.accepting = False
 
         results = {}
@@ -102,7 +109,17 @@ class ColorHunt:
             self.all_in.set()
 
     async def on_photo(self, name, data):
-        if not self.accepting or name not in self.connected or name in self.round_scores:
+        if name not in self.connected or not isinstance(data, dict):
+            return
+        token = data.get("round_token")
+        if not isinstance(token, str) or not token or len(token) > 128:
+            return
+        if (not self.accepting or token != self.round_token or self.round_deadline is None
+                or asyncio.get_running_loop().time() >= self.round_deadline):
+            await self.broadcast({"type": "ch_photo_rejected", "data": {
+                "name": name, "round_token": token}})
+            return
+        if name in self.round_scores:
             return
         try:
             raw = base64.b64decode(data["image"].split(",", 1)[-1], validate=True)
@@ -110,12 +127,14 @@ class ColorHunt:
                 raise ValueError("too big")
             rgb = center_average_color(raw)
         except Exception:
-            await self.broadcast({"type": "ch_photo_error", "data": {"name": name}})
+            await self.broadcast({"type": "ch_photo_error", "data": {
+                "name": name, "round_token": token}})
             return
         self.round_scores[name] = similarity_score(self.target, rgb)
         self.round_rgb[name] = list(rgb)
         self.submitted.add(name)
-        await self.broadcast({"type": "ch_submitted", "data": {"names": sorted(self.round_scores)}})
+        await self.broadcast({"type": "ch_submitted", "data": {
+            "names": sorted(self.round_scores), "round_token": token}})
         self._check_all_in()
 
     async def on_motion(self, name, value):

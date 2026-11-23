@@ -22,6 +22,7 @@ function setupColorHunt(ws, role, getName) {
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const rgbCss = (c) => c ? "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")" : "#eee";
   let timerId = null, deadline = 0, submitted = false, photoData = null, round = null;
+  let pendingToken = null;
 
   // 색은 CSS 배경이 아니라 <canvas>(그림)로 그린다. 브라우저의 강제 다크모드는 그림의 색은 바꾸지 않는다.
   function paintColors() {
@@ -39,7 +40,10 @@ function setupColorHunt(ws, role, getName) {
     });
   }
 
-  function hide() { stopCamera(); clearInterval(timerId); root.hidden = true; root.innerHTML = ""; }
+  function hide() {
+    stopCamera(); clearInterval(timerId); round = null; pendingToken = null; photoData = null;
+    root.hidden = true; root.innerHTML = "";
+  }
   function startTimer(seconds) {
     deadline = Date.now() + seconds * 1000;
     clearInterval(timerId);
@@ -70,21 +74,29 @@ function setupColorHunt(ws, role, getName) {
   }
   function bindFile() {
     const f = document.getElementById("ch-file");
-    if (f) f.onchange = onPick;
+    const token = round && round.round_token;
+    if (f) f.onchange = e => onPick(e, token);
   }
   function setMsg(text) {
     const m = document.getElementById("ch-msg");
     if (m) m.textContent = text;
   }
+  function isCurrentRound(token, area) {
+    return typeof token === "string" && token.length > 0 && round && round.round_token === token &&
+      !root.hidden && !submitted && ws.readyState === WebSocket.OPEN && Date.now() < deadline &&
+      area && document.getElementById("ch-area") === area;
+  }
   // 촬영 시작: 기본은 앱 안 카메라, 안 되면 사진 앱 방식으로 바꾼다
   async function startCapture() {
     const area = document.getElementById("ch-area");
-    if (!area || submitted || ws.readyState !== WebSocket.OPEN || Date.now() >= deadline) return;
+    const token = round && round.round_token;
+    if (!isCurrentRound(token, area)) {
+      if (round && !token) setMsg("게임 정보를 확인할 수 없어요. 새로고침해 주세요.");
+      return;
+    }
     stopCamera();
     const requestGeneration = cameraGeneration;
-    const isCurrent = () => requestGeneration === cameraGeneration && !root.hidden &&
-      !submitted && ws.readyState === WebSocket.OPEN && Date.now() < deadline &&
-      document.getElementById("ch-area") === area;
+    const isCurrent = () => requestGeneration === cameraGeneration && isCurrentRound(token, area);
     if (useFile || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       useFile = true;
       area.innerHTML = fileButton("📷 사진 찍기"); bindFile();
@@ -113,10 +125,10 @@ function setupColorHunt(ws, role, getName) {
     setMsg("동그라미 안에 물건을 가득 담고 촬영하세요");
     paintColors();
     document.getElementById("ch-shot").onclick = () => {
-      if (!video.videoWidth) return;
+      if (!isCurrent() || !video.videoWidth) return;
       photoData = canvasToJpeg(video, video.videoWidth, video.videoHeight);
       stopCamera();
-      showPreview();
+      showPreview(token);
     };
   }
 
@@ -129,21 +141,36 @@ function setupColorHunt(ws, role, getName) {
     return c.toDataURL("image/jpeg", 0.8);
   }
 
-  function showPreview() {
-    const msg = document.getElementById("ch-msg");
-    document.getElementById("ch-area").innerHTML =
-      '<img class="ch-preview" src="' + photoData + '"><br>' +
+  function showPreview(token) {
+    const area = document.getElementById("ch-area");
+    if (!isCurrentRound(token, area)) return;
+    const image = photoData;
+    area.innerHTML = '<img class="ch-preview" src="' + image + '"><br>' +
       '<button id="ch-send" class="ch-btn">보내기</button>' +
       '<button id="ch-retake" class="ch-btn sub">다시 찍기</button>';
-    document.getElementById("ch-retake").onclick = () => { photoData = null; startCapture(); };
-    document.getElementById("ch-send").onclick = () => {
-      if (submitted || ws.readyState !== WebSocket.OPEN) return;
-      submitted = true;
-      ws.send(JSON.stringify({type: "photo", data: {image: photoData}}));
-      document.getElementById("ch-area").innerHTML = '<p class="ch-big">제출 완료 ✓</p>';
-      msg.textContent = "다른 사람을 기다리고 있어요";
+    document.getElementById("ch-retake").onclick = () => {
+      if (!isCurrentRound(token, area)) return;
+      photoData = null; startCapture();
     };
-    msg.textContent = "이 사진으로 보낼까요?";
+    document.getElementById("ch-send").onclick = () => {
+      if (!isCurrentRound(token, area)) {
+        if (round && round.round_token === token && document.getElementById("ch-area") === area && Date.now() >= deadline) {
+          setMsg("시간이 지나 사진을 보낼 수 없어요.");
+        }
+        return;
+      }
+      submitted = true; pendingToken = token;
+      try {
+        ws.send(JSON.stringify({type: "photo", data: {image, round_token: token}}));
+      } catch (err) {
+        submitted = false; pendingToken = null;
+        setMsg("사진을 보내지 못했어요. 연결 상태를 확인해 주세요.");
+        return;
+      }
+      area.innerHTML = '<p class="ch-big">전송 중...</p>';
+      setMsg("서버에서 사진을 확인하고 있어요");
+    };
+    setMsg("이 사진으로 보낼까요?");
   }
 
   // 사진을 작게 줄여서(긴 변 240px) JPEG 문자열로 바꾼다
@@ -151,18 +178,18 @@ function setupColorHunt(ws, role, getName) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const out = canvasToJpeg(img, img.width, img.height);
-        URL.revokeObjectURL(img.src);
-        resolve(out);
+        try { resolve(canvasToJpeg(img, img.width, img.height)); }
+        catch (err) { reject(err); }
+        finally { URL.revokeObjectURL(img.src); }
       };
-      img.onerror = () => reject(new Error("이미지를 열 수 없어요"));
+      img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error("이미지를 열 수 없어요")); };
       img.src = URL.createObjectURL(file);
     });
   }
 
   function showRound(d) {
     stopCamera();
-    round = d; submitted = false; photoData = null;
+    round = d; submitted = false; pendingToken = null; photoData = null;
     root.hidden = false;
     const head = '<p class="ch-note">컬러헌트 ' + d.index + ' / ' + d.total + ' · 남은 시간 <b id="ch-time"></b>초</p>' +
       '<p class="ch-big">' + esc(d.color_name) + ' 색을 찾아라!</p>' +
@@ -179,16 +206,26 @@ function setupColorHunt(ws, role, getName) {
     startTimer(d.seconds);
   }
 
-  async function onPick(e) {
+  async function onPick(e, token) {
     const file = e.target.files[0];
-    if (!file || submitted) return;
-    try { photoData = await shrink(file); } catch (err) { setMsg(err.message); return; }
-    showPreview();
+    const area = document.getElementById("ch-area");
+    if (!file || !isCurrentRound(token, area)) return;
+    const requestGeneration = ++cameraGeneration; // 더 늦게 끝나는 이전 이미지 처리를 무효화한다.
+    let image;
+    try { image = await shrink(file); }
+    catch (err) {
+      if (requestGeneration === cameraGeneration && isCurrentRound(token, area)) setMsg(err.message);
+      return;
+    }
+    if (requestGeneration !== cameraGeneration || !isCurrentRound(token, area)) return;
+    photoData = image;
+    showPreview(token);
   }
 
   function showResult(d) {
     stopCamera();
     clearInterval(timerId);
+    round = null; pendingToken = null; photoData = null;
     const rows = Object.keys(d.results).sort((a, b) => d.results[b].score - d.results[a].score).map(n => {
       const r = d.results[n];
       return '<div class="ch-row"><canvas class="ch-chip" data-color="' + rgbCss(r.rgb) + '"></canvas>' +
@@ -204,6 +241,7 @@ function setupColorHunt(ws, role, getName) {
   function showOver(d) {
     stopCamera();
     clearInterval(timerId);
+    round = null; pendingToken = null; photoData = null;
     root.hidden = false;
     const noSubmissions = new Set(d.not_submitted || []);
     const rows = d.ranking.map((n, i) =>
@@ -225,6 +263,12 @@ function setupColorHunt(ws, role, getName) {
     });
     ws.addEventListener("close", (e) => {
       stopCamera();
+      if (pendingToken) {
+        const area = document.getElementById("ch-area");
+        if (area) area.innerHTML = '<p class="ch-big">전송 확인 불가</p>';
+        setMsg("연결이 끊겨 사진 제출 여부를 확인할 수 없어요.");
+        pendingToken = null;
+      }
       const bar = document.createElement("div");
       bar.className = "ch-banner";
       const ago = hiddenAt ? Math.round((Date.now() - hiddenAt) / 1000) + "초 전에 화면이 가려짐" : "화면 가려진 적 없음";
@@ -236,13 +280,33 @@ function setupColorHunt(ws, role, getName) {
   ws.addEventListener("message", (event) => {
     const msg = JSON.parse(event.data), d = msg.data || {};
     if (msg.type === "ch_round") showRound(d);
-    else if (msg.type === "ch_submitted" && role === "host") {
-      const who = document.getElementById("ch-who");
-      if (who) who.textContent = "제출: " + d.names.join(", ");
-    } else if (msg.type === "ch_photo_error" && role === "player" && d.name === getName()) {
-      submitted = false; photoData = null;
-      setMsg("사진을 읽지 못했어요. 다시 찍어 주세요");
-      startCapture();
+    else if (msg.type === "ch_submitted" && round && d.round_token === round.round_token) {
+      if (role === "host") {
+        const who = document.getElementById("ch-who");
+        if (who) who.textContent = "제출: " + d.names.join(", ");
+      } else if (pendingToken === d.round_token && d.names.includes(getName())) {
+        pendingToken = null;
+        const area = document.getElementById("ch-area");
+        if (area) area.innerHTML = '<p class="ch-big">제출 완료 ✓</p>';
+        setMsg("다른 사람을 기다리고 있어요");
+      }
+    } else if (msg.type === "ch_photo_error" && role === "player" && d.name === getName() &&
+               round && d.round_token === round.round_token && pendingToken === d.round_token) {
+      submitted = false; pendingToken = null; photoData = null;
+      const area = document.getElementById("ch-area");
+      if (isCurrentRound(d.round_token, area)) {
+        setMsg("사진을 읽지 못했어요. 다시 찍어 주세요");
+        startCapture();
+      } else {
+        if (area) area.innerHTML = '<p class="ch-big">제출 실패</p>';
+        setMsg("사진을 읽지 못했고 시간이 지나 다시 보낼 수 없어요.");
+      }
+    } else if (msg.type === "ch_photo_rejected" && role === "player" && d.name === getName() &&
+               round && d.round_token === round.round_token && pendingToken === d.round_token) {
+      pendingToken = null; photoData = null;
+      const area = document.getElementById("ch-area");
+      if (area) area.innerHTML = '<p class="ch-big">제출 실패</p>';
+      setMsg("시간이 지나 사진을 제출하지 못했어요.");
     }
     else if (msg.type === "ch_round_result") showResult(d);
     else if (msg.type === "ch_over") showOver(d);

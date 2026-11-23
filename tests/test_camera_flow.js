@@ -68,7 +68,7 @@ function createHarness() {
     for (const fn of listeners.close || []) fn({ code: 1006 });
   }
   function round(index = 1) {
-    event('ch_round', { index, total: 3, color_name: '빨강', hex: '#d32f2f', seconds: 25 });
+    event('ch_round', { index, total: 3, color_name: '빨강', hex: '#d32f2f', seconds: 25, round_token: 'token-' + index });
   }
   function result() {
     event('ch_round_result', { color_name: '빨강', hex: '#d32f2f', results: {}, totals: {} });
