@@ -44,16 +44,24 @@ function setupColorHunt(ws, role, getName) {
     deadline = Date.now() + seconds * 1000;
     clearInterval(timerId);
     const tick = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       const el = document.getElementById("ch-time");
-      if (el) el.textContent = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      if (el) el.textContent = remaining;
+      if (remaining === 0) {
+        stopCamera();
+        clearInterval(timerId);
+        timerId = null;
+      }
     };
-    tick(); timerId = setInterval(tick, 250);
+    tick();
+    if (Date.now() < deadline) timerId = setInterval(tick, 250);
   }
 
   // ---- 카메라: 페이지 안에서 바로 촬영 (앱 전환 없음 -> 연결이 안 끊긴다) ----
-  let stream = null, useFile = false;
+  let stream = null, useFile = false, cameraGeneration = 0;
 
   function stopCamera() {
+    cameraGeneration += 1; // 대기 중인 카메라 요청도 무효화한다.
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   }
   function fileButton(label) {
@@ -71,21 +79,33 @@ function setupColorHunt(ws, role, getName) {
   // 촬영 시작: 기본은 앱 안 카메라, 안 되면 사진 앱 방식으로 바꾼다
   async function startCapture() {
     const area = document.getElementById("ch-area");
-    if (!area || submitted) return;
+    if (!area || submitted || ws.readyState !== WebSocket.OPEN || Date.now() >= deadline) return;
+    stopCamera();
+    const requestGeneration = cameraGeneration;
+    const isCurrent = () => requestGeneration === cameraGeneration && !root.hidden &&
+      !submitted && ws.readyState === WebSocket.OPEN && Date.now() < deadline &&
+      document.getElementById("ch-area") === area;
     if (useFile || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       useFile = true;
       area.innerHTML = fileButton("📷 사진 찍기"); bindFile();
       return;
     }
+    let requestedStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia(
+      requestedStream = await navigator.mediaDevices.getUserMedia(
         {video: {facingMode: {ideal: "environment"}}, audio: false});
     } catch (err) {
+      if (!isCurrent()) return;
       useFile = true;
       setMsg("카메라를 직접 켤 수 없어요 (" + err.name + "). 사진 앱으로 찍어 주세요");
       area.innerHTML = fileButton("📷 사진 찍기"); bindFile();
       return;
     }
+    if (!isCurrent()) {
+      requestedStream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    stream = requestedStream;
     area.innerHTML = '<div class="ch-cam"><video id="ch-video" playsinline autoplay muted></video>' +
       '<canvas class="ch-aim" data-ring="' + round.hex + '"></canvas></div><br><button id="ch-shot" class="ch-btn">📸 촬영</button>';
     const video = document.getElementById("ch-video");
@@ -182,6 +202,7 @@ function setupColorHunt(ws, role, getName) {
   }
 
   function showOver(d) {
+    stopCamera();
     clearInterval(timerId);
     root.hidden = false;
     const rows = d.ranking.map((n, i) =>
@@ -200,6 +221,7 @@ function setupColorHunt(ws, role, getName) {
       if (document.visibilityState === "hidden") hiddenAt = Date.now();
     });
     ws.addEventListener("close", (e) => {
+      stopCamera();
       const bar = document.createElement("div");
       bar.className = "ch-banner";
       const ago = hiddenAt ? Math.round((Date.now() - hiddenAt) / 1000) + "초 전에 화면이 가려짐" : "화면 가려진 적 없음";
