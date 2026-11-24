@@ -12,6 +12,9 @@ def test_registered_ui_assets_are_in_role_pages():
     assert host.index('/game-assets/red_light/result.js') < host.index('/game-assets/red_light/host.js')
     assert player.index('/game-assets/red_light/result.js') < player.index('/game-assets/red_light/player.js')
     assert '/game-assets/red_light/result.css' in host and '/game-assets/red_light/result.css' in player
+    assert '/game-assets/red_light/arena.css' in host and '/game-assets/red_light/arena.css' in player
+    assert host.index('/game-assets/red_light/arena.js') < host.index('/game-assets/red_light/host.js')
+    assert player.index('/game-assets/red_light/arena.js') < player.index('/game-assets/red_light/player.js')
     assert '/game-assets/color_hunt/colorhunt.js' in host
     assert '/game-assets/color_hunt/colorhunt.js' in player
     assert '<!-- GAME_ASSETS -->' not in host

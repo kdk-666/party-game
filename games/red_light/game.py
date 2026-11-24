@@ -1,7 +1,7 @@
 ﻿import asyncio
 import time
 import random
-GAME_TIME = 600.0  # 게임 제한 시간(초)
+GAME_TIME = 600.0  # 기존 게임 설정값. 실제 제한 시간은 GAME_TIME / 10초.
 THRESHOLD = 2.0      # 빨간불에 이 값보다 크게 움직이면 탈락
 GRACE = 0.5          # 빨간불 직후 봐주는 시간(초)
 START_DIST = 10.0   # 술래까지 거리(m)
@@ -27,6 +27,7 @@ class RedLight:
         self.red_since = 0.0
         self.running = False
         self.end_event = asyncio.Event()
+        self.end_time = None
         self.broadcast = broadcast
 
     async def run(self):
@@ -38,8 +39,9 @@ class RedLight:
         await self.wait_or_end(3)
 
         if not self.end_event.is_set():
-            self.loop_task = asyncio.create_task(self.move_loop())
             end_time = asyncio.get_running_loop().time() + GAME_TIME / 10
+            self.end_time = end_time
+            self.loop_task = asyncio.create_task(self.move_loop())
 
             while not self.end_event.is_set():
                 await self.set_state("green")
@@ -138,12 +140,19 @@ class RedLight:
                         self.arrived.append(n)
                 if self.arrived:
                     self.end_event.set()  # 도착자가 생기면 종료 신호
-            await self.broadcast({"type": "dist", "data": {
-                "dist": self.dist, "alive": sorted(self.alive)}})
+            await self.broadcast({"type": "dist", "data": self.screen_state()})
+
+    def screen_state(self):
+        """클라이언트가 실제 경기 상태와 서버 기준 남은 시간을 그릴 수 있게 한다."""
+        remaining = None if self.end_time is None else max(0.0, self.end_time - asyncio.get_running_loop().time())
+        return {"dist": dict(self.dist), "alive": sorted(self.alive),
+                "connected": sorted(self.connected), "eliminated": list(self.out),
+                "arrived": list(self.arrived), "start_distance": START_DIST,
+                "remaining": remaining}
 
     async def set_state(self, state):
         self.state = state
-        await self.broadcast({"type": "state", "data": {"state": state, "alive": sorted(self.alive)}})
+        await self.broadcast({"type": "state", "data": {"state": state, **self.screen_state()}})
 
     async def on_motion(self, name, value):
         if not self.running or name not in self.alive:

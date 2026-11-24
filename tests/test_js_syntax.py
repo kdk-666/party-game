@@ -22,6 +22,7 @@ def assert_valid_javascript(source, label):
 @pytest.mark.parametrize("path", [
     "web/game-router.js",
     "games/red_light/client/result.js",
+    "games/red_light/client/arena.js",
     "games/red_light/client/host.js",
     "games/red_light/client/player.js",
     "games/color_hunt/client/colorhunt.js",

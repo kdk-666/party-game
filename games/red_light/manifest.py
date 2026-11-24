@@ -22,7 +22,7 @@ GAME_INFO = {
     "ui": {
         "host": {"script": "host.js", "setup": "setupRedLightHostUI"},
         "player": {"script": "player.js", "setup": "setupRedLightPlayerUI"},
-        "styles": ["result.css"],
-        "scripts": ["result.js"],
+        "styles": ["result.css", "arena.css"],
+        "scripts": ["result.js", "arena.js"],
     },
 }
