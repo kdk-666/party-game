@@ -1,5 +1,5 @@
 // 공통 WebSocket을 게임별 메시지 처리기로 연결한다.
-function setupGameRouter(ws, role, getName) {
+function setupGameRouter(ws, role, getName, preparationGuide) {
   const handlers = new Map();
   const entries = document.querySelectorAll('script[data-game-ui]');
   let activeGame = null;
@@ -20,7 +20,7 @@ function setupGameRouter(ws, role, getName) {
         else ws.addEventListener(type, listener);
       },
     };
-    try { setup(gameSocket, role, getName); }
+    try { setup(gameSocket, role, getName, preparationGuide); }
     catch (error) { console.error('게임 화면 초기화 오류:', gameId, error); return false; }
     handlers.set(gameId, listeners);
   }

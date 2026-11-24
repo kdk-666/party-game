@@ -30,6 +30,11 @@
             background: #fff; color: #111; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,.4); transition: opacity .3s; }
 .tb-recal.cool { opacity: .35; }
 .tb-recal[hidden] { display: none; }
+.tb-sensor { position: absolute; left: 14px; bottom: 24px; z-index: 3; padding: 12px 16px;
+             border: 0; border-radius: 14px; color: #35220f; background: #ffe08a; font-size: 16px; font-weight: bold;
+             box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.tb-sensor[hidden] { display: none; }
+.tb-sensor:disabled { opacity: .65; }
 
 /* ---- 보기 좋게 다듬기: 나무 탁자 분위기, 유리 느낌의 표시, 부드러운 움직임 ---- */
 .tb-screen { background: radial-gradient(ellipse at 50% 35%, #2f2013 0%, #120b06 80%); }
@@ -51,7 +56,8 @@
 .tb-count { font-size: 150px; animation: tb-pop .6s cubic-bezier(.2,1.4,.4,1); color: #fff7e0;
             text-shadow: 0 6px 0 rgba(120,60,10,.55), 0 10px 30px rgba(0,0,0,.7); }
 @keyframes tb-pop { 0% { transform: scale(.3); opacity: 0; } 40% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
-.tb-toast { animation: tb-toast-in .28s cubic-bezier(.2,1.5,.4,1); background: linear-gradient(#fde68a, #f59e0b); border: 1px solid rgba(120,60,0,.4); }
+.tb-toast { animation: tb-toast-in .28s cubic-bezier(.2,1.5,.4,1); background: linear-gradient(#fde68a, #f59e0b); border: 1px solid rgba(120,60,0,.4);
+            box-sizing: border-box; max-width: calc(100% - 24px); font-size: 15px; overflow-wrap: anywhere; }
 @keyframes tb-toast-in { 0% { transform: translateX(-50%) translateY(-14px) scale(.8); opacity: 0; } 100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; } }
 .tb-banner { background: rgba(20,12,6,.72); border: 1px solid rgba(255,225,180,.3); }
 .tb-recal { background: rgba(255,248,235,.92); color: #4a2c12; border: 1px solid rgba(120,80,30,.35); }

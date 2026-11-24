@@ -35,11 +35,15 @@
     <p id="guide-round" class="guide-kicker"></p>
     <h2 id="guide-title"></h2>
     <p class="guide-timer">시작까지 <strong id="guide-time">60</strong>초</p>
-    <ol id="guide-rules" class="guide-rules"></ol>
-    <p id="guide-summary" class="guide-summary" aria-live="polite"></p>
-    <ul id="guide-players" class="guide-players"></ul>
-    <button id="guide-ready" class="guide-button" type="button">준비 완료</button>
-    <p id="guide-hint" class="guide-hint">방법을 읽었다면 준비 버튼을 눌러 주세요.</p>
+    <div class="guide-layout">
+      <div><h3 class="guide-section-title">이렇게 해요</h3><ol id="guide-rules" class="guide-rules"></ol></div>
+      <div><div id="guide-extra" class="guide-extra"></div>
+        <p id="guide-summary" class="guide-summary" aria-live="polite"></p>
+        <ul id="guide-players" class="guide-players"></ul>
+        <button id="guide-ready" class="guide-button" type="button">준비 완료</button>
+        <p id="guide-hint" class="guide-hint">방법을 읽었다면 준비 버튼을 눌러 주세요.</p>
+      </div>
+    </div>
   </section>
 </div>
 <!-- GAME_ASSETS -->
@@ -51,7 +55,7 @@ const ws = new WebSocket("wss://" + location.host + "/ws/player");
 const bg = document.getElementById("bg");
 const msgEl = document.getElementById("msg");
 let last = 0, myName = "";
-setupGameGuide(ws, () => myName);
+const preparationGuide = setupGameGuide(ws, () => myName);
 setupScoreboard(ws, "player", () => myName);
 ws.addEventListener("message", event => {
   const msg = JSON.parse(event.data);
@@ -67,7 +71,7 @@ ws.addEventListener("message", event => {
     msgEl.textContent = "";
   }
 });
-if (!setupGameRouter(ws, "player", () => myName)) {
+if (!setupGameRouter(ws, "player", () => myName, preparationGuide)) {
   ws.close();
   document.getElementById("btn").disabled = true;
   msgEl.textContent = "게임 화면을 불러오지 못했어요. 새로고침해 주세요.";

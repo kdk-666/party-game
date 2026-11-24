@@ -31,16 +31,19 @@ def test_two_phones_race_through_the_real_server(monkeypatch):
             assert until(ws, "join_ok")["name"] == name
         host.send_text(json.dumps({"type": "start", "data": {}}))
 
-        token = until(p1, "round_start")["token"]                   # 기존 준비(설명) 화면
-        until(p2, "round_start")
+        guide1 = until(p1, "round_start")
+        guide2 = until(p2, "round_start")
+        token = guide1["token"]
+        assert guide2["token"] == token
+        assert guide1["game_data"]["maze"]["rows"] == TINY["rows"]
         for ws in (p1, p2):
             ws.send_text(json.dumps({"type": "ready", "data": {"token": token}}))
 
-        intro = until(p1, "tb_intro")                               # 이 게임의 준비 단계
-        assert intro["maze"]["rows"] == TINY["rows"]
+        intro = until(p1, "tb_intro")
+        assert intro["maze"] == guide1["game_data"]["maze"]
+        assert intro["unified_preparation"] is True
         until(p2, "tb_intro")
-        for ws in (p1, p2):
-            ws.send_text(json.dumps({"type": "tb_ready", "data": {}}))
+        # 추가 tb_ready를 보내지 않아도 곧바로 카운트다운이 시작돼야 한다.
         until(p1, "tb_count")
 
         # 경주: 민준은 세게, 서연은 약하게 기울인다

@@ -12,7 +12,7 @@ function tbTilt(beta, gamma, b0, g0, range, dead) {
 }
 if (typeof module !== "undefined") module.exports = {tbTilt, tbWrap};
 
-function setupTiltBall(ws, role, getName) {
+function setupTiltBall(ws, role, getName, preparationGuide) {
   let root = document.getElementById("tb-screen");
   if (!root) {                                   // 게임 화면은 게임 폴더만으로 동작해야 하므로 HTML에 없으면 스스로 만든다
     root = document.createElement("div");
@@ -28,11 +28,13 @@ function setupTiltBall(ws, role, getName) {
     '<div class="tb-hud" hidden><span data-k="left"></span><span data-k="info"></span></div>' +
     '<div class="tb-toast" hidden></div><div class="tb-banner" hidden></div><div class="tb-count" hidden></div>' +
     '<button class="tb-recal" hidden>영점 조절</button>' +
+    '<button class="tb-sensor" hidden>센서 켜기</button>' +
     '<div class="tb-card" data-k="card" hidden></div>';
   const cv = root.querySelector("canvas"); let ctx = cv.getContext("2d");
   const hud = root.querySelector(".tb-hud"), toast = root.querySelector(".tb-toast");
   const banner = root.querySelector(".tb-banner"), countEl = root.querySelector(".tb-count");
   const card = root.querySelector('[data-k="card"]'), recal = root.querySelector(".tb-recal");
+  const sensorButton = root.querySelector(".tb-sensor");
   if (isHost) hud.classList.add("host");                        // 노트북: 남은 시간을 크게 가운데에
   const RECAL_COOLDOWN = 20;                                    // 영점 조절 쿨타임(초)
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -44,12 +46,19 @@ function setupTiltBall(ws, role, getName) {
   const sec = (v) => (typeof v === "number" ? v : "?");     // 도착 시간이 없을 때 'undefined'가 화면에 뜨지 않게
   // 폰 센서
   let beta = null, gamma = null, b0 = 0, g0 = 0, sensing = false, wakeLock = null, tiltTimer = null;
+  let sensorEpoch = 0, sensorBusy = false, sensorReady = false;
   let range = Number(localStorage.getItem("tiltRange")) || 25;
 
   // ---------- 공통 ----------
   function show() { root.hidden = false; if (!running) { running = true; requestAnimationFrame(draw); resize(); } }
-  function hide() { root.hidden = true; running = false; phase = "idle"; clearInterval(tiltTimer); tiltTimer = null; sensing = false;
-                    window.removeEventListener("deviceorientation", onOrientation); releaseWake(); recal.hidden = true; resetRecal(); }
+  function stopSensor() {
+    sensorEpoch++; sensorBusy = false; sensorReady = false; sensing = false;
+    calibrateNext = false; beta = null; gamma = null;
+    window.removeEventListener("deviceorientation", onOrientation); releaseWake();
+    sensorButton.hidden = true; sensorButton.disabled = false;
+  }
+  function hide() { root.hidden = true; running = false; phase = "idle"; clearInterval(tiltTimer); tiltTimer = null;
+                    stopSensor(); recal.hidden = true; resetRecal(); }
   // 노트북은 해상도 상한을 둬서 가볍게 한다
   function resize() { const r = Math.min(window.devicePixelRatio || 1, isHost ? 1.25 : 2); cv.width = Math.round(cv.clientWidth * r); cv.height = Math.round(cv.clientHeight * r); }
   window.addEventListener("resize", resize);
@@ -81,32 +90,75 @@ function setupTiltBall(ws, role, getName) {
   // ---------- 폰 센서 ----------
   let calibrateNext = false;            // true이면 다음에 들어오는 센서 값을 기준(0점)으로 삼는다
   function onOrientation(e) {
-    if (e.beta === null || e.gamma === null) return;
+    if (!Number.isFinite(e.beta) || !Number.isFinite(e.gamma)) return;
     beta = e.beta; gamma = e.gamma;
     if (calibrateNext) { b0 = beta; g0 = gamma; calibrateNext = false; }
   }
   async function requestWake() {
     if (!("wakeLock" in navigator)) return false;
-    try { wakeLock = await navigator.wakeLock.request("screen"); return true; } catch (e) { return false; }
+    const epoch = sensorEpoch;
+    try {
+      const lock = await navigator.wakeLock.request("screen");
+      if (epoch !== sensorEpoch || !sensing) { lock.release(); return false; }
+      if (wakeLock && wakeLock !== lock) wakeLock.release();
+      wakeLock = lock; return true;
+    } catch (e) { return false; }
   }
   function releaseWake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
   document.addEventListener("visibilitychange", () => { if (sensing && document.visibilityState === "visible") requestWake(); });
 
-  async function pressReady(btn, note) {
-    const DOE = window.DeviceOrientationEvent;                     // iPhone은 버튼을 누르는 이 순간에 권한을 물어야 한다
-    if (DOE && typeof DOE.requestPermission === "function") {
-      try { if (await DOE.requestPermission() !== "granted") { note.textContent = "센서 권한이 거부됐어요. 설정에서 허용해 주세요."; return; } }
-      catch (e) { note.textContent = "센서 권한 요청 실패: " + e.name; return; }
+  async function prepareSensor() {
+    const epoch = sensorEpoch;
+    if (sensorBusy) return {ok: false, message: "센서를 확인하고 있어요. 잠시 기다려 주세요."};
+    sensorBusy = true;
+    try {
+      const DOE = window.DeviceOrientationEvent; // 클릭 처리 안에서 iPhone 권한 요청을 시작한다.
+      if (!DOE) return {ok: false, message: "이 브라우저에서 기울기 센서를 사용할 수 없어요."};
+      if (typeof DOE.requestPermission === "function") {
+        try {
+          if (await DOE.requestPermission() !== "granted") return {ok: false, message: "센서 권한이 거부됐어요. 설정에서 허용한 뒤 다시 시도해 주세요."};
+        } catch (e) { return {ok: false, message: "센서 권한을 요청하지 못했어요. 다시 시도해 주세요."}; }
+      }
+      if (epoch !== sensorEpoch) return {ok: false};
+      beta = null; gamma = null; calibrateNext = true; sensing = true;
+      window.addEventListener("deviceorientation", onOrientation);
+      for (let i = 0; i < 30 && calibrateNext && epoch === sensorEpoch; i++) await new Promise((r) => setTimeout(r, 50));
+      if (epoch !== sensorEpoch) return {ok: false};
+      if (calibrateNext || beta === null || gamma === null) {
+        sensing = false; calibrateNext = false; window.removeEventListener("deviceorientation", onOrientation);
+        return {ok: false, message: "기울기 센서 값을 받지 못했어요. 권한과 화면 방향을 확인하고 다시 시도해 주세요."};
+      }
+      sensorReady = true; requestWake();
+      return {ok: true};
+    } finally {
+      if (epoch === sensorEpoch) {
+        sensorBusy = false;
+        if (!isHost && !root.hidden && ["intro", "count", "race"].includes(phase)) {
+          sensorButton.disabled = false; sensorButton.hidden = sensorReady;
+          if (phase === "race") recal.hidden = !sensorReady;
+        }
+      }
     }
-    const wake = await requestWake();
-    calibrateNext = true;                                          // 지금 각도(첫 센서 값)가 기준(0점)
-    window.addEventListener("deviceorientation", onOrientation);
-    sensing = true;
-    for (let i = 0; i < 12 && calibrateNext; i++) await new Promise((r) => setTimeout(r, 50));   // 첫 값을 최대 0.6초 기다림
-    btn.disabled = true; btn.textContent = "준비 완료 ✓";
-    note.textContent = beta === null ? "센서 값이 없어요. 방향키로만 움직일 수 있어요." : (wake ? "" : "화면이 꺼지지 않게 가끔 화면을 만져 주세요.");
+  }
+  if (!isHost && preparationGuide) preparationGuide.register("tilt_ball", prepareSensor);
+  async function pressReady(btn, note) {
+    btn.disabled = true;
+    const result = await prepareSensor();
+    if (!result.ok) { btn.disabled = false; note.textContent = result.message || "다시 시도해 주세요."; return; }
+    btn.textContent = "준비 완료 ✓"; note.textContent = "";
     send({type: "tb_ready", data: {}});
   }
+  sensorButton.onclick = async () => {
+    const epoch = sensorEpoch;
+    sensorButton.disabled = true;
+    const result = await prepareSensor();
+    if (epoch !== sensorEpoch) return;
+    sensorButton.disabled = false;
+    if (!result.ok) { sensorButton.textContent = "센서 다시 켜기"; say(result.message || "센서를 다시 확인해 주세요.", 3000); return; }
+    sensorButton.hidden = true;
+    if (phase === "race") recal.hidden = false;
+    say("센서 연결 완료!");
+  };
   const keys = {};
   window.addEventListener("keydown", (e) => { keys[e.key] = true; });
   window.addEventListener("keyup", (e) => { keys[e.key] = false; });
@@ -138,6 +190,13 @@ function setupTiltBall(ws, role, getName) {
     names.forEach((n, i) => { colors[n] = COLORS[i % COLORS.length]; });
     snap = null; shown = {}; lastSaves = 0; lastTs = null; lagSamples = []; setBanner(""); hud.hidden = true;
     parts = []; trail = {}; fallAt = {}; prevPos = {}; spin = {}; texKey = ""; hostCache = null;
+    if (d.unified_preparation) {
+      card.hidden = true;
+      sensorButton.hidden = isHost || sensorReady;
+      sensorButton.disabled = sensorBusy;
+      sensorButton.textContent = "센서 켜기";
+      return;
+    }
     const lv = Number(maze.level) || 0;                                  // 코스 이름과 난이도(★)
     const course = maze.name ? '<p class="tb-small">코스: <b>' + esc(maze.name) + '</b> ' + "★".repeat(lv) + "☆".repeat(Math.max(0, 3 - lv)) + '</p>' : "";
     if (isHost) {
@@ -162,7 +221,7 @@ function setupTiltBall(ws, role, getName) {
       '<p class="tb-small">' + ready.length + ' / ' + total + '</p>';
   }
   function onState(d) {
-    if (phase !== "race") { phase = "race"; card.hidden = true; countEl.hidden = true; hud.hidden = false; startSending(); if (!isHost) { recal.hidden = false; resetRecal(); } }
+    if (phase !== "race") { phase = "race"; card.hidden = true; countEl.hidden = true; hud.hidden = false; startSending(); if (!isHost) { recal.hidden = !sensorReady; resetRecal(); } }
     const prevSnap = snap;
     snap = d.players; recvAt = performance.now();
     fxFromState(prevSnap);
@@ -192,7 +251,7 @@ function setupTiltBall(ws, role, getName) {
     }
   }
   function showOver(d) {
-    phase = "over"; clearInterval(tiltTimer); setBanner(""); hud.hidden = true; countEl.hidden = true; recal.hidden = true;
+    phase = "over"; clearInterval(tiltTimer); stopSensor(); setBanner(""); hud.hidden = true; countEl.hidden = true; recal.hidden = true;
     const why = {all_finished: "모두 결승선에 도착했어요!", last_one: "한 명을 제외하고 모두 도착했어요.", time: "시간이 다 됐어요."}[d.reason] || "경주가 끝났어요!";
     const me = isHost ? null : getName();
     const rows = d.ranking.map((n, i) => {
@@ -228,7 +287,10 @@ function setupTiltBall(ws, role, getName) {
     else if (msg.type === "tb_over") showOver(d);
     else if (["round_start", "round_result", "return_lobby", "match_cancelled", "match_error", "game_cancelled"].includes(msg.type)) hide();
   });
-  ws.addEventListener("close", () => { if (!root.hidden && !isHost) { setBanner("서버 연결이 끊겼어요. 새로고침해 주세요"); } });
+  ws.addEventListener("close", () => {
+    clearInterval(tiltTimer); stopSensor(); recal.hidden = true;
+    if (!root.hidden && !isHost) setBanner("서버 연결이 끊겼어요. 새로고침해 주세요");
+  });
 
   // ---------- 그리기 (나무판 위의 유리구슬 미로) ----------
   // 모든 그림은 캔버스로 직접 그린다 (이미지 파일 없음). 미로 바닥/벽은 한 번만 큰 그림으로 만들어 두고 매 프레임 잘라서 쓴다.

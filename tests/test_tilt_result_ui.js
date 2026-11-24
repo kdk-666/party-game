@@ -7,9 +7,9 @@ function element() {
     classList: {add(v) { classes.add(v); }, remove(v) { classes.delete(v); }, toggle(v, on) { if (on) classes.add(v); else classes.delete(v); }, contains(v) { return classes.has(v); }},
     getContext() { return {}; }, querySelector() { return element(); }};
 }
-const root = element(), canvas = element(), hud = element(), toast = element(), banner = element(), count = element(), card = element(), recal = element(), close = element();
+const root = element(), canvas = element(), hud = element(), toast = element(), banner = element(), count = element(), card = element(), recal = element(), sensor = element(), close = element();
 card.querySelector = selector => selector === '[data-k="close"]' ? close : element();
-const selectors = {'canvas': canvas, '.tb-hud': hud, '.tb-toast': toast, '.tb-banner': banner, '.tb-count': count, '[data-k="card"]': card, '.tb-recal': recal};
+const selectors = {'canvas': canvas, '.tb-hud': hud, '.tb-toast': toast, '.tb-banner': banner, '.tb-count': count, '[data-k="card"]': card, '.tb-recal': recal, '.tb-sensor': sensor};
 root.querySelector = selector => selectors[selector];
 const listeners = {}, document = {getElementById: () => root, addEventListener() {}, visibilityState: 'visible'};
 const ws = {readyState: 1, send() {}, addEventListener(type, fn) { (listeners[type] || (listeners[type] = [])).push(fn); }};

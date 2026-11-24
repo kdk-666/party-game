@@ -116,17 +116,21 @@ async def prepare_match_round(match, game_id, info):
     current = GamePreparation(names, PREPARATION_SECONDS)
     preparation = current
     try:
+        get_game_data = getattr(game, "preparation_data", None)
+        game_data = get_game_data() if callable(get_game_data) else {}
         async with current.lock:
             await to_everyone({"type": "round_start", "data": {
                 "game_id": game_id,
                 "game_name": info["name"],
                 "instructions": info.get("instructions", []),
+                "guide": info.get("guide", {}),
                 "round": match.completed_rounds + 1,
                 "total_rounds": len(match.game_ids),
                 "token": current.token,
                 "players": sorted(current.players),
                 "ready": [],
                 "remaining": current.remaining(),
+                "game_data": game_data,
             }})
 
         can_start = await current.wait()

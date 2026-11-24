@@ -38,10 +38,14 @@
     <p id="guide-round" class="guide-kicker"></p>
     <h2 id="guide-title"></h2>
     <p class="guide-timer">시작까지 <strong id="guide-time">60</strong>초</p>
-    <ol id="guide-rules" class="guide-rules"></ol>
-    <p id="guide-summary" class="guide-summary" aria-live="polite"></p>
-    <ul id="guide-players" class="guide-players"></ul>
-    <p id="guide-hint" class="guide-hint">참가자 전원이 준비하면 바로 시작해요.</p>
+    <div class="guide-layout">
+      <div><h3 class="guide-section-title">이렇게 해요</h3><ol id="guide-rules" class="guide-rules"></ol></div>
+      <div><div id="guide-extra" class="guide-extra"></div>
+        <p id="guide-summary" class="guide-summary" aria-live="polite"></p>
+        <ul id="guide-players" class="guide-players"></ul>
+        <p id="guide-hint" class="guide-hint">참가자 전원이 준비하면 바로 시작해요.</p>
+      </div>
+    </div>
   </section>
 </div>
 <!-- GAME_ASSETS -->
@@ -55,7 +59,7 @@ document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl)
 document.getElementById("url").textContent = joinUrl;
 
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
-setupGameGuide(ws, () => null);
+const preparationGuide = setupGameGuide(ws, () => null);
 setupScoreboard(ws, "host", () => null);
 ws.addEventListener("message", event => {
   const msg = JSON.parse(event.data), status = document.getElementById("status");
@@ -63,7 +67,7 @@ ws.addEventListener("message", event => {
   else if (msg.type === "countdown") status.textContent = "게임이 곧 시작해요";
   else if (["game_over", "ch_over", "tb_over", "round_result"].includes(msg.type)) status.textContent = "";
 });
-if (setupGameRouter(ws, "host", () => null)) {
+if (setupGameRouter(ws, "host", () => null, preparationGuide)) {
   setupHostLobby(ws);
   document.getElementById("start").onclick = () => ws.send(JSON.stringify({type: "start", data: {}}));
 } else {

@@ -35,6 +35,12 @@ class TiltBall:
         self.last_ts = {}                # 폰이 보낸 시각 (지연 시간 계산용으로 돌려준다)
         self.end_reason = "time"         # 끝난 이유: all_finished(모두 도착) / last_one(마지막 한 명만 남음) / time(시간 끝)
         self.running = False
+        self.unified_preparation = False
+
+    def preparation_data(self):
+        """대회의 공통 준비 화면에서 사용할 실제 게임 맵을 반환한다."""
+        self.unified_preparation = True
+        return {"maze": {"name": self.maze.name, "rows": self.maze.rows, "level": self.maze.level}}
 
     # ----- 진행 -----
     async def run(self):
@@ -42,11 +48,13 @@ class TiltBall:
         await self.broadcast({"type": "countdown", "data": {}})       # 설명 화면을 닫고 게임 화면을 연다
         await self.broadcast({"type": "tb_intro", "data": {
             "maze": {"name": self.maze.name, "rows": self.maze.rows, "level": self.maze.level},
-            "names": self.names, "time_limit": TIME_LIMIT, "timeout": INTRO_TIMEOUT}})
-        try:
-            await asyncio.wait_for(self.ready_event.wait(), timeout=INTRO_TIMEOUT)
-        except asyncio.TimeoutError:
-            pass                                                       # 안 누른 사람이 있어도 시작한다
+            "names": self.names, "time_limit": TIME_LIMIT, "timeout": INTRO_TIMEOUT,
+            "unified_preparation": self.unified_preparation}})
+        if not self.unified_preparation:
+            try:
+                await asyncio.wait_for(self.ready_event.wait(), timeout=INTRO_TIMEOUT)
+            except asyncio.TimeoutError:
+                pass                                                   # 독립 실행에서는 기존 준비 단계 유지
 
         if self.connected:
             self.phase = "count"
