@@ -1,0 +1,40 @@
+/* 컬러헌트의 게임 종료 화면. 촬영과 라운드별 결과에는 영향을 주지 않는다. */
+.ch-result { min-height: calc(100dvh - 32px); display: grid; place-items: center; color: #33304d; text-align: left; }
+.ch-result * { box-sizing: border-box; }
+.ch-result-card { width: min(100%, 720px); padding: clamp(22px, 4vw, 40px); border: 1px solid #e9e2fa; border-radius: 28px;
+  background: #fff; box-shadow: 0 22px 70px rgba(86,58,147,.13); }
+.ch-result-top { display: flex; justify-content: space-between; align-items: center; color: #9160c8; font-size: 12px; font-weight: 900; letter-spacing: .18em; }
+.ch-result-dots { display: flex; gap: 5px; }
+.ch-result-dots i { width: 13px; height: 13px; border-radius: 50%; background: #f27888; }
+.ch-result-dots i:nth-child(2) { background: #ffbd61; }.ch-result-dots i:nth-child(3) { background: #62cbb4; }.ch-result-dots i:nth-child(4) { background: #8b83ea; }
+.ch-result h2 { margin: 10px 0 0; color: #312744; font-size: clamp(27px, 4vw, 39px); letter-spacing: -.05em; }
+.ch-result-subtitle { margin: 7px 0 20px; color: #78718b; font-size: 14px; }
+.ch-result-winner { display: flex; align-items: center; gap: 15px; padding: 16px 18px; margin-bottom: 17px; border: 1px solid #ecd9fa;
+  border-radius: 18px; background: linear-gradient(110deg, #f8ecff, #fff0f3); }
+.ch-result-icon { display: grid; place-items: center; width: 54px; height: 54px; flex: none; border-radius: 17px; background: #fff; font-size: 30px; }
+.ch-result-winner div { display: grid; gap: 4px; min-width: 0; }
+.ch-result-winner div > span { color: #9d69b7; font-size: 12px; font-weight: 800; }
+.ch-result-winner strong { font-size: 23px; overflow-wrap: anywhere; }
+.ch-result-winner small { color: #817088; font-size: 12px; }
+.ch-result-rows { display: grid; gap: 8px; }
+.ch-result-row { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 10px 14px;
+  border: 1px solid #ede8f6; border-radius: 15px; background: #faf8fe; }
+.ch-result-row.is-me { border-color: #caa8ed; background: #f5eefe; }
+.ch-result-rank { display: grid; place-items: center; min-height: 39px; border-radius: 11px; color: #877795; background: #eee9f5; font-size: 12px; }
+.ch-result-rank.is-first { color: #9a6927; background: #ffebc2; }
+.ch-result-person { display: grid; gap: 3px; min-width: 0; }
+.ch-result-person strong { font-size: 17px; overflow-wrap: anywhere; }
+.ch-result-person strong small { color: #9566c3; font-size: 11px; }
+.ch-result-person > span { color: #80768e; font-size: 12px; }
+.ch-result-points { display: grid; gap: 3px; text-align: right; white-space: nowrap; }
+.ch-result-points small { color: #867a95; font-size: 11px; }
+.ch-result-points strong { color: #7654a1; font-size: 20px; }
+.ch-result-footer { margin: 22px 0 0; color: #8a8097; font-size: 13px; text-align: center; }
+.ch-result-dismiss { display: block; margin: 10px auto 0; padding: 7px 14px; border: 1px solid #ded5ed; border-radius: 99px; background: #fff; color: #685a7a; font: inherit; font-size: 12px; cursor: pointer; }
+@media (max-width: 480px) {
+  .ch-result-card { padding: 20px 15px; border-radius: 22px; }
+  .ch-result-row { grid-template-columns: 51px minmax(0,1fr) auto; gap: 8px; padding: 9px; }
+  .ch-result-winner { padding: 12px; }
+  .ch-result-icon { width: 45px; height: 45px; font-size: 26px; }
+  .ch-result-points strong { font-size: 18px; }
+}

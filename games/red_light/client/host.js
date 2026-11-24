@@ -1,4 +1,5 @@
 function setupRedLightHostUI(ws, role, getName) {
+  setupRedLightResult(ws, role, getName);
   setupRedLightHost(ws);
 }
 

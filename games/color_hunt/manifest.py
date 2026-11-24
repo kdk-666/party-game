@@ -13,6 +13,6 @@ GAME_INFO = {
     "ui": {
         "host": {"script": "colorhunt.js", "setup": "setupColorHuntUI"},
         "player": {"script": "colorhunt.js", "setup": "setupColorHuntUI"},
-        "styles": ["colorhunt.css"],
+        "styles": ["colorhunt.css", "result-style.css"],
     },
 }

@@ -1,0 +1,42 @@
+/* 미로의 나무·구슬 분위기를 살린 게임 종료 화면 */
+.tb-card.tb-result-card { width: min(90%, 720px); max-height: calc(100dvh - 28px); overflow-y: auto; touch-action: pan-y;
+  box-sizing: border-box; padding: clamp(20px, 4vw, 36px); border-radius: 25px; color: #4c311b; text-align: left;
+  background: linear-gradient(155deg, #fffdf6, #fbf0db); border: 1px solid #dfc79f; box-shadow: 0 24px 65px rgba(0,0,0,.55); }
+.tb-result-card * { box-sizing: border-box; }
+.tb-card.tb-result-card.tb-result-wait { background: rgba(25, 16, 10, .86); border: 0; box-shadow: none; color: #fff7e8; text-align: center; }
+.tb-result-wait p { margin: 0; font-size: 16px; }
+.tb-result-top { display: flex; justify-content: space-between; align-items: center; color: #a16b39; font-size: 12px; font-weight: 900; letter-spacing: .18em; }
+.tb-result-marble { display: grid; place-items: center; width: 30px; height: 30px; color: #3d8ccb; border-radius: 50%; font-size: 23px; line-height: 1;
+  background: radial-gradient(circle at 30% 25%, #fff, #8ac9f0 30%, #26619d 95%); box-shadow: 0 2px 6px #a88660; }
+.tb-result-card h2 { margin: 10px 0 0; color: #4b2e19; font-size: clamp(27px, 4vw, 39px); letter-spacing: -.05em; }
+.tb-result-card p.tb-result-subtitle { margin: 7px 0 20px; color: #856e58; font-size: 14px; }
+.tb-result-winner { display: flex; align-items: center; gap: 15px; padding: 16px 18px; margin-bottom: 17px; border: 1px solid #efdbb4;
+  border-radius: 18px; background: linear-gradient(110deg, #fff1ce, #fff9ed); }
+.tb-result-icon { display: grid; place-items: center; width: 54px; height: 54px; flex: none; border-radius: 17px; background: #fffdf8; font-size: 30px; }
+.tb-result-winner div { display: grid; gap: 4px; min-width: 0; }
+.tb-result-winner div > span { color: #ac7b3b; font-size: 12px; font-weight: 800; }
+.tb-result-winner strong { font-size: 23px; overflow-wrap: anywhere; }
+.tb-result-winner small { color: #907961; font-size: 12px; }
+.tb-result-rows { display: grid; gap: 8px; }
+.tb-result-row { display: grid; grid-template-columns: 53px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 10px 14px;
+  border: 1px solid #eadcc5; border-radius: 15px; background: rgba(255,255,255,.65); }
+.tb-result-row.is-me { border-color: #d6ab6b; background: #fff7e7; }
+.tb-result-rank { display: grid; place-items: center; min-height: 39px; border-radius: 11px; color: #8a735a; background: #f0e6d7; font-size: 13px; }
+.tb-result-rank.is-first { color: #906124; background: #ffe6ae; }
+.tb-result-person { display: grid; gap: 4px; min-width: 0; }
+.tb-result-person strong { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: 17px; overflow-wrap: anywhere; }
+.tb-result-person strong small { color: #a9773d; font-size: 11px; }
+.tb-result-person > span { color: #88745f; font-size: 12px; }
+.tb-result-person .tb-chip { display: inline-block; width: 17px; height: 17px; }
+.tb-result-score { display: grid; gap: 3px; text-align: right; white-space: nowrap; }
+.tb-result-score small { color: #8f7b66; font-size: 11px; }
+.tb-result-score strong { color: #80532d; font-size: 20px; }
+.tb-result-card p.tb-result-footer { margin: 22px 0 0; color: #927b61; font-size: 13px; text-align: center; }
+.tb-result-dismiss { display: block; margin: 10px auto 0; padding: 7px 14px; border: 1px solid #dfceb3; border-radius: 99px; background: #fffdf7; color: #765d47; font: inherit; font-size: 12px; cursor: pointer; }
+@media (max-width: 480px) {
+  .tb-card.tb-result-card { width: calc(100% - 24px); padding: 20px 15px; border-radius: 22px; }
+  .tb-result-row { grid-template-columns: 46px minmax(0,1fr) auto; gap: 8px; padding: 9px; }
+  .tb-result-winner { padding: 12px; }
+  .tb-result-icon { width: 45px; height: 45px; font-size: 26px; }
+  .tb-result-score strong { font-size: 18px; }
+}

@@ -1,4 +1,5 @@
 function setupRedLightPlayerUI(ws, role, getName) {
+  setupRedLightResult(ws, role, getName);
   setupRedLightPlayer(ws, getName);
 }
 

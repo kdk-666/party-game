@@ -9,10 +9,19 @@ def test_registered_ui_assets_are_in_role_pages():
     player = main.player_page().body.decode("utf-8")
     assert '/game-assets/red_light/host.js' in host
     assert '/game-assets/red_light/player.js' in player
+    assert host.index('/game-assets/red_light/result.js') < host.index('/game-assets/red_light/host.js')
+    assert player.index('/game-assets/red_light/result.js') < player.index('/game-assets/red_light/player.js')
+    assert '/game-assets/red_light/result.css' in host and '/game-assets/red_light/result.css' in player
     assert '/game-assets/color_hunt/colorhunt.js' in host
     assert '/game-assets/color_hunt/colorhunt.js' in player
     assert '<!-- GAME_ASSETS -->' not in host
     assert '<!-- GAME_ASSETS -->' not in player
+
+
+def test_host_keeps_guide_but_not_stale_preparation_text():
+    host = main.host_page().body.decode('utf-8')
+    assert 'id="game-guide"' in host
+    assert 'status.textContent = "게임 준비 중"' not in host
 
 
 def test_new_registered_game_ui_is_added_without_html_edits(tmp_path, monkeypatch):
@@ -37,6 +46,13 @@ def test_client_mount_does_not_expose_server_file():
 
 def test_rejects_unsafe_game_id(monkeypatch):
     monkeypatch.setattr(main, 'GAME_REGISTRY', {'../bad': {}})
+    with pytest.raises(ValueError):
+        main.host_page()
+
+
+def test_rejects_unsafe_shared_script(monkeypatch):
+    bad = {'ui': {'scripts': ['../secret.js'], 'host': {'script': 'host.js', 'setup': 'setupBad'}}}
+    monkeypatch.setattr(main, 'GAME_REGISTRY', {'red_light': bad})
     with pytest.raises(ValueError):
         main.host_page()
 

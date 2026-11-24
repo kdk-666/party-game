@@ -29,6 +29,10 @@ def render_game_page(role, registry, games_dir, web_dir):
             assets.append(f'<link rel="stylesheet" href="{href}">')
         entry = ui.get(role)
         if entry is not None:
+            # 한 게임에서 PC와 휴대폰이 함께 쓰는 보조 스크립트는 설정에 명시한다.
+            for filename in ui.get("scripts", []):
+                src = asset_url(filename, ".js")
+                assets.append(f'<script src="{src}"></script>')
             setup = entry.get("setup", "")
             if not isinstance(setup, str) or not re.fullmatch(r"[a-zA-Z_$][a-zA-Z0-9_$]*", setup):
                 raise ValueError(f"잘못된 게임 화면 함수: {game_id}")

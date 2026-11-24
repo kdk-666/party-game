@@ -16,6 +16,7 @@ from server.game_pages import render_game_page as build_game_page
 from server.games.registry import GAME_REGISTRY
 from server.match import Match
 from server.preparation import GamePreparation
+from server.standings import build_standings
 from server.tilt_test import install_tilt_test
 
 class PublicStaticFiles(StaticFiles):
@@ -39,8 +40,12 @@ players = {}   # {WebSocket: 닉네임}
 game = None
 total_scores = {}
 match_task = None
+active_match = None
 preparation = None
-INTERMISSION_SECONDS = 5
+GAME_RESULT_SECONDS = 4
+LAST_GAME_RESULT_SECONDS = 3
+INTERMISSION_SECONDS = 4
+FINAL_SECONDS = 10
 PREPARATION_SECONDS = 60
 
 async def send_all(sockets, msg):
@@ -134,35 +139,64 @@ async def send_match_start(match, game_id, info):
     return await prepare_match_round(match, game_id, info)
 
 
+def standings_data(match):
+    standings, winners = build_standings(match.total_scores, players.values())
+    return {"standings": standings, "winners": winners}
+
+
+async def notify_standings_change(name):
+    current = active_match
+    if current is None or name not in current.total_scores:
+        return
+    async with current.standings_lock:
+        if active_match is current:
+            await to_everyone({"type": "match_standings_update", "data": standings_data(current)})
+
+
 async def send_match_result(match, game_id, result):
+    # 마지막 게임은 자체 결과를 짧게 보고, 집계 후 최종 우승 화면으로 넘어간다.
+    is_last = match.completed_rounds == len(match.game_ids)
+    await asyncio.sleep(LAST_GAME_RESULT_SECONDS if is_last else GAME_RESULT_SECONDS)
     print("누적 점수:", match.total_scores, flush=True)
-    await to_everyone({"type": "round_result", "data": {
-        "game_id": game_id,
-        "round": match.completed_rounds,
-        "scores": result["scores"],
-        "total_scores": dict(match.total_scores),
-    }})
+    async with match.standings_lock:
+        await to_everyone({"type": "round_result", "data": {
+            "game_id": game_id,
+            "game_name": match.game_registry[game_id]["name"],
+            "round": match.completed_rounds,
+            "total_rounds": len(match.game_ids),
+            "scores": result["scores"],
+            "total_scores": dict(match.total_scores),
+            "seconds": INTERMISSION_SECONDS,
+            **standings_data(match),
+        }})
+    # 마지막 게임도 집계를 보여준 후에 최종 결과로 넘어간다.
+    await asyncio.sleep(INTERMISSION_SECONDS)
+
+
 async def send_match_over(match):
-    standings = [
-        {"name": name, "score": score}
-        for name, score in sorted(match.total_scores.items(), key=lambda item: -item[1])
-    ]
     print("대회 종료. 최종 점수:", match.total_scores, flush=True)
-    await to_everyone({"type": "match_over", "data": {
-        "total_scores": dict(match.total_scores),
-        "standings": standings,
-    }})
+    async with match.standings_lock:
+        await to_everyone({"type": "match_over", "data": {
+            "total_scores": dict(match.total_scores),
+            "seconds": FINAL_SECONDS,
+            **standings_data(match),
+        }})
+
+
 async def run_match(match):
-    global game
+    global game, match_task, active_match
+    return_to_lobby = False
     try:
         completed = await match.run_all(
             lambda game_id, info: make_match_game(match, info),
             lambda game_id, result: send_match_result(match, game_id, result),
-            delay=INTERMISSION_SECONDS,
+            delay=0,
             on_start=lambda game_id, info: send_match_start(match, game_id, info),
         )
         if completed:
             await send_match_over(match)
+            await asyncio.sleep(FINAL_SECONDS)
+            return_to_lobby = True
         else:
             print('대회 취소됨', flush=True)
             await to_everyone({"type": "match_cancelled", "data": {}})
@@ -171,12 +205,22 @@ async def run_match(match):
         await to_everyone({"type": "match_error", "data": {"message": "대회 진행 중 오류가 발생했습니다."}})
     finally:
         game = None
+        if active_match is match:
+            active_match = None
+        if return_to_lobby:
+            # 폰 화면이 먼저 대기실로 돌아온 뒤에 호스트가 새 게임을 시작할 수 있게 한다.
+            msg = {"type": "return_lobby", "data": {}}
+            await send_all(list(players), msg)
+            if match_task is asyncio.current_task():
+                match_task = None
+            await to_hosts(msg)
+            await send_lobby()
 
 
 
 @app.websocket("/ws/host")
 async def ws_host(ws: WebSocket):
-    global game, match_task
+    global game, match_task, active_match
     await ws.accept()
     hosts.append(ws)
     await send_lobby()
@@ -193,6 +237,7 @@ async def ws_host(ws: WebSocket):
                     print("대회를 시작할 수 없습니다:", error, flush=True)
                     await ws.send_json({"type": "match_error", "data": {"message": str(error)}})
                     continue
+                active_match = match
                 match_task = asyncio.create_task(run_match(match))
     except WebSocketDisconnect:
         hosts.remove(ws)
@@ -267,6 +312,8 @@ async def ws_player(ws: WebSocket):
                     current.remove_player(name)
                     await send_preparation_update(current)
 
+        if name is not None:
+            await notify_standings_change(name)
         await send_lobby()
 
 

@@ -20,6 +20,7 @@ class Match:
         self.completed_rounds = 0
         self.total_scores = {name: 0 for name in self.players}
         self.active_game_id = None
+        self.standings_lock = asyncio.Lock()
     def start_next_round(self):
         if self.active_game_id is not None:
             raise RuntimeError("이미 진행 중인 게임이 있습니다.")

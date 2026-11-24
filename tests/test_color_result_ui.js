@@ -5,7 +5,7 @@ const path = require('path');
 const vm = require('vm');
 const source = fs.readFileSync(path.join(__dirname, '..', 'games', 'color_hunt', 'client', 'colorhunt.js'), 'utf8');
 
-function render(data, role = 'host', name = '가') {
+function render(data, role = 'host', name = '가', closeEarly = false) {
   let nodes = {};
   const listeners = {};
   function element(id) {
@@ -43,6 +43,15 @@ function render(data, role = 'host', name = '가') {
   for (const listener of listeners.message || []) {
     listener({ data: JSON.stringify({ type: 'ch_over', data }) });
   }
+  if (closeEarly) {
+    nodes['ch-close'].onclick();
+    assert(!root.hidden, '결과를 닫아도 이전 게임 화면이 드러나면 안 됩니다');
+    assert(root.innerHTML.includes('점수 집계를 기다리고 있어요'));
+    for (const listener of listeners.message || []) {
+      listener({ data: JSON.stringify({ type: 'round_result', data: {} }) });
+    }
+    assert(root.hidden, '서버의 점수 집계 신호를 받으면 대기 화면을 닫아야 합니다');
+  }
   return root.innerHTML;
 }
 
@@ -65,7 +74,9 @@ const mixed = {
 const html = render(mixed, 'player', '제출');
 assert(html.includes('우승!'));
 assert(html.includes('1등'));
-assert(html.includes('<b>미제출</b><span>미제출</span>'));
+assert(html.includes('<strong>미제출</strong>'));
+assert(html.includes('사진 미제출'));
 assert(html.includes('대회 1000점'));
 assert(html.includes('대회 0점'));
+render(mixed, 'player', '제출', true);
 console.log('color result UI OK');

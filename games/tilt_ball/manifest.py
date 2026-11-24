@@ -13,6 +13,6 @@ GAME_INFO = {
     "ui": {
         "host": {"script": "tiltball.js", "setup": "setupTiltBall"},
         "player": {"script": "tiltball.js", "setup": "setupTiltBall"},
-        "styles": ["tiltball.css"],
+        "styles": ["tiltball.css", "result-style.css"],
     },
 }

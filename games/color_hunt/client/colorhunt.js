@@ -42,7 +42,7 @@ function setupColorHunt(ws, role, getName) {
 
   function hide() {
     stopCamera(); clearInterval(timerId); round = null; pendingToken = null; photoData = null;
-    root.hidden = true; root.innerHTML = "";
+    root.hidden = true; root.innerHTML = ""; root.style.background = "";
   }
   function startTimer(seconds) {
     deadline = Date.now() + seconds * 1000;
@@ -243,16 +243,29 @@ function setupColorHunt(ws, role, getName) {
     clearInterval(timerId);
     round = null; pendingToken = null; photoData = null;
     root.hidden = false;
+    root.style.background = '#f8f6ff';
     const noSubmissions = new Set(d.not_submitted || []);
-    const rows = d.ranking.map((n, i) =>
-      '<div class="ch-row ch-final-row"><b>' + (noSubmissions.has(n) ? '미제출' : (i + 1) + '등') +
-      '</b><span>' + esc(n) + '</span><span>색상 ' + d.totals[n] + '점 · 대회 ' + d.scores[n] + '점</span></div>').join("");
-    const closeBtn = '<button id="ch-close" class="ch-btn sub">닫기</button>';
     const me = role === "player" ? getName() : null;
-    const winnerText = d.winner === null ? '<p class="ch-note">우승자 없음 (전원 미제출)</p>' :
-      (me && d.winner === me ? '<p class="ch-big">우승!</p>' : '');
-    root.innerHTML = '<p class="ch-big">🏆 컬러헌트 결과</p>' + winnerText + rows + '<br>' + closeBtn;
-    document.getElementById("ch-close").onclick = hide;
+    const rows = d.ranking.map((n, i) => {
+      const missing = noSubmissions.has(n);
+      return '<div class="ch-result-row' + (n === me ? ' is-me' : '') + '">' +
+        '<b class="ch-result-rank' + (i === 0 && !missing ? ' is-first' : '') + '">' + (missing ? '미제출' : (i + 1) + '등') + '</b>' +
+        '<span class="ch-result-person"><strong>' + esc(n) + (n === me ? ' <small>나</small>' : '') + '</strong>' +
+        '<span>' + (missing ? '사진 미제출' : '색상 점수 ' + d.totals[n] + '점') + '</span></span>' +
+        '<span class="ch-result-points"><small>대회 ' + d.scores[n] + '점</small><strong>' + d.totals[n] + '점</strong></span></div>';
+    }).join("");
+    const winner = d.winner === null ? '우승자 없음' : esc(d.winner);
+    const message = d.winner === null ? '전원 미제출' : (me && d.winner === me ? '우승!' : '가장 비슷한 색을 찾았어요!');
+    root.innerHTML = '<div class="ch-result"><div class="ch-result-card"><div class="ch-result-top"><span>GAME RESULT</span><div class="ch-result-dots"><i></i><i></i><i></i><i></i></div></div>' +
+      '<h2>컬러헌트 결과</h2><p class="ch-result-subtitle">세 번의 색 찾기 결과를 확인해요.</p>' +
+      '<div class="ch-result-winner"><span class="ch-result-icon">🎨</span><div><span>이번 게임 우승</span><strong>' + winner + '</strong><small>' + message + '</small></div></div>' +
+      '<div class="ch-result-rows">' + rows + '</div><p class="ch-result-footer">잠시 후 대회 점수를 집계해요 →</p>' +
+      '<button id="ch-close" class="ch-result-dismiss">결과 닫기</button></div></div>';
+    document.getElementById("ch-close").onclick = () => {
+      hide();
+      root.hidden = false; root.style.background = '#f8f6ff';
+      root.innerHTML = '<div class="ch-result"><p class="ch-result-subtitle" role="status">점수 집계를 기다리고 있어요.</p></div>';
+    };
   }
 
   // ---- 연결이 끊기면 폰 화면에 이유를 보여준다 (원인 추적용) ----
@@ -310,6 +323,6 @@ function setupColorHunt(ws, role, getName) {
     }
     else if (msg.type === "ch_round_result") showResult(d);
     else if (msg.type === "ch_over") showOver(d);
-    else if (["round_start", "match_cancelled", "match_error", "game_cancelled"].includes(msg.type)) hide();
+    else if (["round_start", "round_result", "return_lobby", "match_cancelled", "match_error", "game_cancelled"].includes(msg.type)) hide();
   });
 }

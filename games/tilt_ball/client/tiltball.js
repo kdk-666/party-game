@@ -133,6 +133,7 @@ function setupTiltBall(ws, role, getName) {
 
   // ---------- 메시지 ----------
   function showIntro(d) {
+    card.classList.remove("tb-result-card"); card.classList.remove("tb-result-wait");
     show(); phase = "intro"; maze = d.maze; names = d.names; timeLimit = d.time_limit;
     names.forEach((n, i) => { colors[n] = COLORS[i % COLORS.length]; });
     snap = null; shown = {}; lastSaves = 0; lastTs = null; lagSamples = []; setBanner(""); hud.hidden = true;
@@ -192,17 +193,29 @@ function setupTiltBall(ws, role, getName) {
   }
   function showOver(d) {
     phase = "over"; clearInterval(tiltTimer); setBanner(""); hud.hidden = true; countEl.hidden = true; recal.hidden = true;
-    const why = {last_one: "마지막 한 명이 남아서 게임이 끝났어요", time: "시간이 다 됐어요"}[d.reason] || "";
+    const why = {all_finished: "모두 결승선에 도착했어요!", last_one: "한 명을 제외하고 모두 도착했어요.", time: "시간이 다 됐어요."}[d.reason] || "경주가 끝났어요!";
     const me = isHost ? null : getName();
     const rows = d.ranking.map((n, i) => {
       const r = d.results[n];
-      const what = typeof r.finish_time === "number" ? "🏁 " + r.finish_time + "초" : Math.round(r.progress * 100) + "% 지점";
-      return '<div class="tb-row"><b>' + (i + 1) + '등</b><span class="tb-chip" style="background:' + colors[n] + '"></span>' +
-        esc(n) + ' <span class="tb-small">' + what + " · 구멍 " + r.falls + '번</span></div>';
+      const what = typeof r.finish_time === "number" ? "완주 " + r.finish_time + "초" : "진행 " + Math.round(r.progress * 100) + "%";
+      const score = d.scores && Number.isFinite(d.scores[n]) ? d.scores[n] : 0;
+      return '<div class="tb-result-row' + (n === me ? ' is-me' : '') + '"><b class="tb-result-rank' + (i === 0 ? ' is-first' : '') + '">' + (i + 1) + '등</b>' +
+        '<span class="tb-result-person"><strong><i class="tb-chip" style="background:' + (colors[n] || '#97764f') + '"></i>' + esc(n) + (n === me ? ' <small>나</small>' : '') + '</strong>' +
+        '<span>' + what + ' · 구멍 ' + r.falls + '번</span></span><span class="tb-result-score"><small>게임 점수</small><strong>' + score.toLocaleString('ko-KR') + '점</strong></span></div>';
     }).join("");
-    card.innerHTML = '<h2>🏆 결과</h2>' + (why ? '<p class="tb-small">' + why + '</p>' : '') + (me && d.winner === me ? '<p><b>우승!</b></p>' : '') + rows +
-      '<button class="tb-btn sub" data-k="close">닫기</button>';
-    card.querySelector('[data-k="close"]').onclick = hide;
+    const winner = d.winner == null ? '우승자 없음' : esc(d.winner);
+    card.classList.add("tb-result-card");
+    card.innerHTML = '<div class="tb-result-top"><span>GAME RESULT</span><span class="tb-result-marble">●</span></div>' +
+      '<h2>공굴리기 결과</h2><p class="tb-result-subtitle">' + why + '</p>' +
+      '<div class="tb-result-winner"><span class="tb-result-icon">🏁</span><div><span>이번 게임 우승</span><strong>' + winner + '</strong><small>' + (me && d.winner === me ? '우승! 멋진 주행이었어요!' : '멋진 주행이었어요!') + '</small></div></div>' +
+      '<div class="tb-result-rows">' + rows + '</div><p class="tb-result-footer">잠시 후 대회 점수를 집계해요 →</p>' +
+      '<button class="tb-result-dismiss" data-k="close">결과 닫기</button>';
+    card.querySelector('[data-k="close"]').onclick = () => {
+      hide();
+      root.hidden = false; card.hidden = false;
+      card.classList.add("tb-result-wait");
+      card.innerHTML = '<p role="status">점수 집계를 기다리고 있어요.</p>';
+    };
     card.hidden = false;
   }
 
@@ -213,7 +226,7 @@ function setupTiltBall(ws, role, getName) {
     else if (msg.type === "tb_count") { phase = "count"; card.hidden = true; countEl.hidden = false; countEl.textContent = d.n; countEl.style.animation = "none"; void countEl.offsetWidth; countEl.style.animation = ""; show(); }
     else if (msg.type === "tb_state") onState(d);
     else if (msg.type === "tb_over") showOver(d);
-    else if (["round_start", "match_cancelled", "match_error", "game_cancelled"].includes(msg.type)) hide();
+    else if (["round_start", "round_result", "return_lobby", "match_cancelled", "match_error", "game_cancelled"].includes(msg.type)) hide();
   });
   ws.addEventListener("close", () => { if (!root.hidden && !isHost) { setBanner("서버 연결이 끊겼어요. 새로고침해 주세요"); } });
 

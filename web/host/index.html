@@ -2,6 +2,7 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="/static/guide.css">
 <link rel="stylesheet" href="/static/lobby.css">
+<link rel="stylesheet" href="/static/scoreboard.css">
 
 <title>미정</title>
 <body id="bg" style="font-family:sans-serif;text-align:center;transition:background .2s">
@@ -47,6 +48,7 @@
 <script src="/static/guide.js"></script>
 <script src="/static/game-router.js"></script>
 <script src="/static/host-lobby.js"></script>
+<script src="/static/scoreboard.js"></script>
 <script>
 const joinUrl = location.origin + "/play";
 document.getElementById("qr").src = "/qr.svg?url=" + encodeURIComponent(joinUrl);
@@ -54,11 +56,12 @@ document.getElementById("url").textContent = joinUrl;
 
 const ws = new WebSocket("wss://" + location.host + "/ws/host");
 setupGameGuide(ws, () => null);
+setupScoreboard(ws, "host", () => null);
 ws.addEventListener("message", event => {
   const msg = JSON.parse(event.data), status = document.getElementById("status");
-  if (msg.type === "round_start") status.textContent = "게임 준비 중";
+  if (msg.type === "round_start") status.textContent = "";
   else if (msg.type === "countdown") status.textContent = "게임이 곧 시작해요";
-  else if (msg.type === "round_result" && status.textContent === "게임이 곧 시작해요") status.textContent = "게임이 끝났어요";
+  else if (["game_over", "ch_over", "tb_over", "round_result"].includes(msg.type)) status.textContent = "";
 });
 if (setupGameRouter(ws, "host", () => null)) {
   setupHostLobby(ws);

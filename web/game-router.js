@@ -40,6 +40,9 @@ function setupGameRouter(ws, role, getName) {
       if (activeGame !== null && activeGame !== nextGame) dispatch(activeGame, event);
       activeGame = nextGame;
       dispatch(activeGame, event);
+    } else if (msg.type === 'return_lobby') {
+      if (activeGame !== null) dispatch(activeGame, event);
+      activeGame = null;
     } else if (activeGame !== null) {
       dispatch(activeGame, event);
     }

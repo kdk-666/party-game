@@ -33,7 +33,12 @@ function setupHostLobby(ws) {
       drawLobby();
     } else if (msg.type === 'countdown') {
       back.hidden = true; showGame();
-    } else if (['match_over', 'match_cancelled', 'match_error', 'game_cancelled'].includes(msg.type)) {
+    } else if (msg.type === 'match_over') {
+      showGame(); back.hidden = true;
+    } else if (msg.type === 'return_lobby') {
+      game.hidden = true; waiting.hidden = false; back.hidden = true;
+      document.getElementById('bg').style.background = ''; drawLobby();
+    } else if (['match_cancelled', 'match_error', 'game_cancelled'].includes(msg.type)) {
       showGame(); back.hidden = false;
     }
   });
