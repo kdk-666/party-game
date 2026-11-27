@@ -78,18 +78,37 @@ async def send_lobby():
     enabled = test_mode_enabled()
     await to_hosts({"type": "lobby", "data": {
         "players": list(players.values()),
-        "test_games": [{'id': game_id, 'name': info['name']} for game_id, info in GAME_REGISTRY.items()] if enabled else [],
+        "test_games": [{'id': game_id, 'name': info['name'], 'maps': info.get('test_maps', []), 'previews': info['test_map_previews'](len(players)) if 'test_map_previews' in info else [], 'previews_by_count': {n: info['test_map_previews'](n) for n in range(1, 5)} if game_id == 'monster_escape' else {}} for game_id, info in GAME_REGISTRY.items()] if enabled else [],
         "test_mode": enabled,
     }})
+def virtual_names(real_names, count):
+    if type(count) is not int or not 0 <= count <= MAX_PLAYERS - len(real_names):
+        raise ValueError("가상 참가자 수가 올바르지 않아요.")
+    names = []
+    index = 1
+    while len(names) < count:
+        name = f"가상 참가자 {index}"
+        if name not in real_names:
+            names.append(name)
+        index += 1
+    return names
+
+
 def make_match_game(match, info):
     global game
 
     connected = set(players.values())
+    if not connected.intersection(match.players):
+        return None
+    connected.update(getattr(match, "virtual_players", ()))
     names = [name for name in match.players if name in connected]
     if not names:
         return None
 
-    game = info["game_class"](names, to_everyone)
+    kwargs = {"map_name": match.selected_map_name} if match.selected_map_name is not None else {}
+    game = info["game_class"](names, to_everyone, **kwargs)
+    if hasattr(game, "virtual_players"):
+        game.virtual_players = set(getattr(match, "virtual_players", ())) & set(names)
     game.running = True
     return game
 async def send_preparation_update(current):
@@ -120,11 +139,16 @@ async def prepare_match_round(match, game_id, info):
     global preparation
 
     connected = set(players.values())
+    if not connected.intersection(match.players):
+        return None
+    connected.update(getattr(match, "virtual_players", ()))
     names = [name for name in match.players if name in connected]
     if not names:
         return False
 
     current = GamePreparation(names, PREPARATION_SECONDS)
+    for name in getattr(match, "virtual_players", ()):
+        current.mark_ready(name)
     preparation = current
     try:
         get_game_data = getattr(game, "preparation_data", None)
@@ -139,7 +163,7 @@ async def prepare_match_round(match, game_id, info):
                 "total_rounds": len(match.game_ids),
                 "token": current.token,
                 "players": sorted(current.players),
-                "ready": [],
+                "ready": sorted(current.ready),
                 "remaining": current.remaining(),
                 "game_data": game_data,
             }})
@@ -155,7 +179,7 @@ async def send_match_start(match, game_id, info):
 
 
 def standings_data(match):
-    standings, winners = build_standings(match.total_scores, players.values())
+    standings, winners = build_standings(match.total_scores, set(players.values()) | set(getattr(match, "virtual_players", ())))
     return {"standings": standings, "winners": winners}
 
 
@@ -251,11 +275,16 @@ async def ws_host(ws: WebSocket):
                     await ws.send_json({'type': 'start_error', 'data': {'message': '시작 요청이 올바르지 않아요.'}})
                     continue
                 selected = data.get('game_id')
-                if selected is not None and not test_mode_enabled():
+                selected_map = data.get("map_name")
+                virtual_count = data.get("virtual_count", 0)
+                if (selected is not None or selected_map is not None or "virtual_count" in data) and not test_mode_enabled():
                     await ws.send_json({'type': 'start_error', 'data': {'message': '게임 선택 테스트 모드가 꺼져 있어요.'}})
                     continue
                 try:
-                    match = Match(list(players.values()), GAME_REGISTRY, selected_game_id=selected)
+                    real_names = list(players.values())
+                    bots = virtual_names(real_names, virtual_count)
+                    match = Match(real_names + bots, GAME_REGISTRY, selected_game_id=selected, selected_map_name=selected_map)
+                    match.virtual_players = tuple(bots)
                 except ValueError as error:
                     print("대회를 시작할 수 없습니다:", error, flush=True)
                     await ws.send_json({"type": "start_error", "data": {"message": str(error)}})
@@ -327,12 +356,18 @@ async def ws_player(ws: WebSocket):
 
         if name is not None and game is not None and game.running:
             await game.remove_player(name)
+            if not players and active_match is not None:
+                for bot in active_match.virtual_players:
+                    await game.remove_player(bot)
 
         current = preparation
         if name is not None and current is not None:
             async with current.lock:
                 if preparation is current and name in current.players:
                     current.remove_player(name)
+                    if not players and active_match is not None:
+                        for bot in active_match.virtual_players:
+                            current.remove_player(bot)
                     await send_preparation_update(current)
 
         if name is not None:

@@ -17,6 +17,11 @@ def until(ws, kind):
 def test_joystick_to_server_and_match_results(monkeypatch):
     monkeypatch.setattr(main, 'GAME_REGISTRY', {'monster_escape': GAME_INFO})
     monkeypatch.setattr(game, 'TIME_LIMIT', 0.6)
+    original_init = game.MonsterEscape.__init__
+    def setup(self, names, broadcast, map_name=None):
+        original_init(self, names, broadcast, map_name='정원 미로')
+        self.positions[names[0]] = [1.5, 1.5]
+    monkeypatch.setattr(game.MonsterEscape, '__init__', setup)
     monkeypatch.setattr(main, 'LAST_GAME_RESULT_SECONDS', 0)
     monkeypatch.setattr(main, 'INTERMISSION_SECONDS', 0)
     monkeypatch.setattr(main, 'FINAL_SECONDS', 0)
@@ -212,13 +217,14 @@ def test_multiplayer_movement_blackout_and_scores(monkeypatch, count, blackout_e
         expected_size = 15 if count == 2 else (17 if count == 3 else 19)
         assert all(len(state['map']) == expected_size and all(len(row) == expected_size for row in state['map']) for state in initial)
         start_x = {name: initial[0]['players'][name]['x'] for name in names}
-        for i, player in enumerate(players):
-            player.send_json({'type': 'me_move', 'data': {'x': 1 if i % 2 == 0 else -1, 'y': 0}})
+        directions = {name: (1 if game.walkable(start_x[name]+1, initial[0]['players'][name]['y'], initial[0]['map']) else -1) for name in names}
+        for name, player in zip(names, players):
+            player.send_json({'type': 'me_move', 'data': {'x': directions[name], 'y': 0}})
         for player in players:
             observed = False
             for _ in range(6):
                 state = until(player, 'me_state')
-                if all((state['players'][name]['x'] - start_x[name]) * (1 if i % 2 == 0 else -1) > 0.05 for i, name in enumerate(names)):
+                if all((state['players'][name]['x'] - start_x[name]) * directions[name] > 0.05 for name in names):
                     observed = True
                     break
             assert observed, '모든 참가자의 이동이 각 참가자에게 반영되어야 합니다'

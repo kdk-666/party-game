@@ -1,4 +1,5 @@
 from games.tilt_ball.game import TiltBall
+from games.tilt_ball.maze import MAZES
 
 GAME_ID = "tilt_ball"
 
@@ -20,6 +21,8 @@ GAME_INFO = {
         "tip": "휴대폰을 세로로 편하게 잡고 준비 완료를 누르세요. 센서 권한을 허용하면 그 자세가 기준이 돼요.",
     },
     "game_class": TiltBall,
+    "test_maps": [m["name"] for m in MAZES],
+    "test_map_previews": lambda count: MAZES,
     "ui": {
         "host": {"script": "tiltball.js", "setup": "setupTiltBall"},
         "player": {"script": "tiltball.js", "setup": "setupTiltBall"},

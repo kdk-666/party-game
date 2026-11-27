@@ -26,6 +26,14 @@
     <div id="test-mode" class="test-mode" hidden>
       <label for="test-game">🧪 테스트 모드 · 게임 선택</label>
       <select id="test-game"><option value="">일반 대회 (랜덤)</option></select>
+      <label for="test-virtual-count">추가 가상 참가자</label>
+      <select id="test-virtual-count"><option value="0">0명</option></select>
+      <div id="test-map-row" hidden>
+        <div class="test-map-heading"><span id="test-map-label">테스트할 맵</span><button type="button" id="test-map-random" aria-pressed="true">무작위 선택</button></div>
+        <select id="test-map" hidden aria-labelledby="test-map-label"><option value="">무작위</option></select>
+        <div id="test-map-cards" class="test-map-cards" role="group" aria-labelledby="test-map-label"></div>
+        <p id="test-map-legend"></p>
+      </div>
       <p>게임을 고르면 해당 게임만 한 판 진행해요.</p>
     </div>
     <button id="start" class="lobby-button" disabled>게임 시작</button>

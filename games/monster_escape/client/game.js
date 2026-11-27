@@ -85,6 +85,41 @@ function monsterEscapeVisibleWallSurface(rows, origin) {
 function monsterEscapeDeathProgress(start, now) {
   return start == null ? null : Math.max(0, Math.min(1, (now - start) / 700));
 }
+// 버려진 물류창고 전용 외형. 충돌과 시야는 기존 격자를 그대로 사용한다.
+function monsterEscapeWarehouseTile(ctx, cell, x, y, size, rows) {
+  const px = x * size, py = y * size;
+  const rect = (color, a, b, w, h) => {
+    ctx.fillStyle = color; ctx.fillRect(px + a * size, py + b * size, w * size, h * size);
+  };
+  if (cell !== '#') {
+    rect((x * 7 + y * 11) % 3 === 0 ? '#92938b' : '#858780', 0, 0, 1, 1);
+    rect('#74776f', 0, 0, 1, .025);
+    if ((x + y * 3) % 7 === 0) {
+      ctx.strokeStyle = '#62665f'; ctx.lineWidth = size * .025;
+      ctx.beginPath(); ctx.moveTo(px + size * .15, py + size * .2);
+      ctx.lineTo(px + size * .42, py + size * .48);
+      ctx.lineTo(px + size * .32, py + size * .65); ctx.stroke();
+    }
+    if (y === 4 || y === rows.length - 2) rect('#b7a05b', .1, .83, .65, .045);
+    return;
+  }
+  const edge = x === 0 || y === 0 || x === rows[0].length - 1 || y === rows.length - 1;
+  const open = (a,b) => rows[b]?.[a] === '.';
+  const thin = !edge && ((open(x-1,y) && open(x+1,y)) || (open(x,y-1) && open(x,y+1)));
+  rect('#303b40', 0, 0, 1, 1);
+  if (edge) {
+    rect('#50575a', .04,.04,.92,.75); rect('#72787a', .04,.04,.92,.08);
+  } else if (thin) {
+    rect('#795a3c', .04,.04,.92,.92); rect('#a8875c', .10,.10,.80,.80);
+    rect('#614b36', .15,.15,.10,.70); rect('#614b36', .75,.15,.10,.70);
+    rect('#c1a273', .25,.45,.50,.08);
+  } else {
+    rect('#485c60', .04,.04,.92,.92);
+    for (let i=0;i<5;i++) rect('#657b7d', .10+i*.17,.10,.055,.76);
+    rect('#956047', .12,.72,.26,.12); rect('#29383b', .04,.86,.92,.10);
+  }
+}
+
 function monsterEscapeInterpolate(previous, current, amount) {
   if (!previous) return current;
   const t = Math.max(0, Math.min(1, amount));
@@ -251,6 +286,10 @@ function setupMonsterEscape(ws, role, getName) {
       const px = x * size, py = y * size;
       // 보이는 타일만 그려 휴대폰에서 불필요한 그리기 작업을 줄인다.
       if (px + offsetX > canvas.width || py + offsetY > canvas.height || px + size + offsetX < 0 || py + size + offsetY < 0) return;
+      if (snapshot.map_name === '버려진 물류창고') {
+        monsterEscapeWarehouseTile(ctx, cell, x, y, size, rows);
+        return;
+      }
       if (cell === '#') {
         // 판정은 기존 격자 그대로. 나뭇잎이 풍성한 공원 생울타리만 시각적으로 추가한다.
         ctx.fillStyle = '#263a2b'; ctx.fillRect(px, py, size, size);
@@ -283,7 +322,7 @@ function setupMonsterEscape(ws, role, getName) {
       ctx.fillStyle = 'rgba(7,18,12,.38)'; ctx.beginPath(); ctx.ellipse(0, size * .2, size * .3, size * .13, 0, 0, Math.PI * 2); ctx.fill();
       const angle = zombieDirections[i] || 0;
       drawSprite(zombieSprite, [Math.cos(angle), Math.sin(angle)], performance.now() - (zombieMovedAt[i] || 0) < 220, size, true);
-      if (snapshot.reinforcements_in > 0 && i >= snapshot.monsters.length - 3) {
+      if (snapshot.reinforcements_in > 0) {
         ctx.font = `bold ${Math.max(10, size * .20)}px sans-serif`; ctx.textAlign = 'center';
         ctx.lineWidth = 3; ctx.strokeStyle = '#203528'; ctx.strokeText('Z', 0, -size * .40); ctx.fillStyle = '#f9e5ae'; ctx.fillText('Z', 0, -size * .40);
       }
@@ -381,7 +420,7 @@ function setupMonsterEscape(ws, role, getName) {
       if (!playing && pointer !== null) reset();
       clock.textContent = `남은 시간 ${Math.ceil(data.remaining)}초`;
       status.dataset.lighting = data.lighting || 'normal';
-      mapName.textContent = `맵: ${data.map_name || '정원'} (${data.map[0].length}×${data.map.length})${data.reinforcements_in > 0 ? ` · 중앙 좀비 출발까지 ${Math.ceil(data.reinforcements_in)}초` : ''}`;
+      mapName.textContent = `맵: ${data.map_name || '정원'} (${data.map[0].length}×${data.map.length})${data.reinforcements_in > 0 ? ` · 좀비 출발까지 ${Math.ceil(data.reinforcements_in)}초` : ''}`;
       if (data.ending) {
         clock.textContent = '생존 결과 확인 중';
         status.textContent = data.ending === 'last_survivor' ? '마지막 생존자가 결정됐어요!' : data.ending === 'time_limit' ? '제한 시간이 끝났어요!' : '모든 플레이어가 탈락했어요.';

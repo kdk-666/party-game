@@ -50,22 +50,65 @@ PARK_MAP = (
 )
 LUMBERYARD_MAP = (
     '###############',
-    '#.....#.......#',
-    '#.##..#..###..#',
-    '#.##..#....#..#',
-    '#...#...##....#',
-    '###.###.##.##.#',
-    '#....#.....#..#',
-    '#.##......##..#',
-    '#..#.#.##....##',
-    '#..#...##.##..#',
-    '#....#....##..#',
-    '##.#####....#.#',
-    '#.....#..##.#.#',
-    '#........#....#',
+    '#.............#',
+    '#.###.....###.#',
+    '#.###.....###.#',
+    '#.............#',
+    '#.#...#.#...#.#',
+    '#.#...#.#...#.#',
+    '#.............#',
+    '#..##.....##..#',
+    '#......#......#',
+    '#.##...#...##.#',
+    '#.##.......##.#',
+    '#....##.##....#',
+    '#.............#',
     '###############',
 )
-MAPS = (('정원 미로', GARDEN_MAP), ('벌목장', LUMBERYARD_MAP), ('공원 갈림길', PARK_MAP))
+# 별도 설계: 두꺼운 화물 더미 사이에 한 칸 점프 통로를 배치한다.
+WAREHOUSE_LARGE_MAPS = {
+    3: (
+        '#################',
+        '#...............#',
+        '#.###.......###.#',
+        '#.#.........###.#',
+        '#...............#',
+        '#.#...#...#...#.#',
+        '#.#...#...#...#.#',
+        '#.......#.......#',
+        '#..###.....###..#',
+        '#...............#',
+        '#..##.......##..#',
+        '#......###......#',
+        '#.##.........##.#',
+        '#.##..........#.#',
+        '#....##...##....#',
+        '#...............#',
+        '#################',
+    ),
+    4: (
+        '###################',
+        '#.................#',
+        '#.###.........###.#',
+        '#.#.............#.#',
+        '#.................#',
+        '#.#...#.....#...#.#',
+        '#.#...#.....#...#.#',
+        '#........#........#',
+        '#..###.......###..#',
+        '#.......###.......#',
+        '#..###.......###..#',
+        '#........#........#',
+        '#..##.........##..#',
+        '#......#####......#',
+        '#.##...........##.#',
+        '#.#.............#.#',
+        '#....##.....##....#',
+        '#.................#',
+        '###################',
+    ),
+}
+MAPS = (('정원 미로', GARDEN_MAP), ('버려진 물류창고', LUMBERYARD_MAP), ('공원 갈림길', PARK_MAP))
 MAP = GARDEN_MAP  # 기존 유틸리티의 기본 맵
 STARTS = [(1.5, 1.5), (13.5, 1.5), (1.5, 13.5), (13.5, 13.5)]
 CENTER_STARTS = [(6.5, 7.5), (7.5, 7.5), (8.5, 7.5)]
@@ -104,6 +147,8 @@ def expand_map(rows, player_count):
     extra = max(0, player_count - 2) * 2
     if not extra:
         return rows
+    if rows == LUMBERYARD_MAP:
+        return WAREHOUSE_LARGE_MAPS[player_count]
     center_x, center_y = len(rows[0]) // 2, len(rows) // 2
     widened = tuple(row[:center_x] + row[center_x] * extra + row[center_x:] for row in rows)
     return widened[:center_y] + (widened[center_y],) * extra + widened[center_y:]
@@ -137,46 +182,50 @@ def zombie_count(player_count):
     return 5 + 2 * (player_count - 1)
 
 
-def spawn_zombies(player_positions, rows=MAP):
-    # 각 참가자에게 두 마리씩 할당한다. 실제 미로의 최단거리로 가까운 안전 위치를 고른다.
-    players = list(player_positions)
-    center_starts = center_zombie_positions(rows)
-    candidates = [(x + 0.5, y + 0.5) for y, row in enumerate(rows) for x, cell in enumerate(row) if cell == '.']
-    chosen = []
-    for player in players:
-        start = (int(player[0]), int(player[1]))
-        distances = {start: 0}
-        first_step = {start: None}
-        first_branch = None
-        queue = deque([start])
-        while queue:
-            x, y = queue.popleft()
-            for nx, ny in ((x-1,y), (x+1,y), (x,y-1), (x,y+1)):
-                if (nx, ny) not in distances and walkable(nx + .5, ny + .5, rows):
-                    distances[(nx, ny)] = distances[(x, y)] + 1
-                    first_step[(nx, ny)] = (nx, ny) if (x, y) == start else first_step[(x, y)]
-                    queue.append((nx, ny))
-        for _ in range(2):
-            available = [p for p in candidates if (int(p[0]), int(p[1])) in distances
-                         and all(math.dist(p, q) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for q in players)
-                         and math.dist(p, player) <= min(math.dist(p, q) for q in players) + 1e-6
-                         and all(math.dist(p, q) >= MIN_ZOMBIE_SPAWN_DISTANCE for q in chosen)
-                         and all(math.dist(p, q) >= MIN_ZOMBIE_SPAWN_DISTANCE for q in center_starts)]
-            # 구석의 두 출구를 동시에 막을 가능성을 줄이도록 첫 좀비와 같은 방향을 우선한다.
-            if first_branch is not None:
-                bx, by = first_branch[0] - start[0], first_branch[1] - start[1]
-                same_side = [p for p in available if (p[0] - player[0]) * bx + (p[1] - player[1]) * by > abs((p[0] - player[0]) * by - (p[1] - player[1]) * bx)]
-                if same_side:
-                    available = same_side
+def spawn_layout(rows, count):
+    floor = {(x, y) for y, row in enumerate(rows) for x, cell in enumerate(row) if cell == '.'}
+    def neighbors(p):
+        x, y = p
+        return [(a, b) for a, b in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)) if (a,b) in floor]
+    candidates = sorted(p for p in floor if len(neighbors(p)) >= 3)
+    for attempt in range(500):
+        # 넓게 분산하되 좀비 안전거리 확보가 우선이다.
+        target = {1: 4, 2: 7, 3: 8, 4: 9}[count]
+        spacing = target if attempt < 150 else max(4, target - 1 - (attempt - 150) // 70)
+        players = []
+        pool = candidates[:]
+        random.shuffle(pool)
+        for p in pool:
+            if all(math.dist(p,q) >= spacing for q in players):
+                players.append(p)
+                if len(players) == count:
+                    break
+        if len(players) != count:
+            continue
+        distances = []
+        for p in players:
+            d = {p: 0}
+            queue = deque([p])
+            while queue:
+                q = queue.popleft()
+                for n in neighbors(q):
+                    if n not in d:
+                        d[n] = d[q] + 1
+                        queue.append(n)
+            distances.append(d)
+        safe = [p for p in sorted(floor) if all(math.dist(p,q) >= MIN_PLAYER_SPAWN_DISTANCE and d.get(p,-1) >= 5 for q,d in zip(players,distances))]
+        chosen = []
+        for i in range(2*count+3):
+            assigned = i < 2*count
+            available = [p for p in safe if all(math.dist(p,q) >= MIN_ZOMBIE_SPAWN_DISTANCE for q in chosen)]
+            if assigned:
+                available = [p for p in available if all(math.dist(p,q) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for q in players)]
             if not available:
-                raise ValueError('참가자 주변에 안전한 좀비 시작 위치가 부족합니다.')
-            selected = min(available, key=lambda p: (distances[(int(p[0]), int(p[1]))], math.dist(p, player), p[1], p[0]))
-            chosen.append(selected)
-            first_branch = first_step[(int(selected[0]), int(selected[1]))]
-    # 중앙 세 마리는 서로 겹치지 않는 인접 칸에서 대기한다.
-    if any(not walkable(*p, rows) for p in center_starts):
-        raise ValueError('중앙 좀비 시작 위치가 막혀 있습니다.')
-    return [list(p) for p in chosen + center_starts]
+                break
+            chosen.append(random.choice(available))
+        if len(chosen) == 2*count+3:
+            return [[x+.5,y+.5] for x,y in players], [[x+.5,y+.5] for x,y in chosen]
+    raise ValueError('안전한 시작 위치를 찾지 못했습니다.')
 
 
 def jump_destination(pos, facing, rows):
@@ -232,18 +281,20 @@ class MonsterEscape:
         self.map_name, original_map = selected
         _last_map = self.map_name
         self.names = list(names)
+        self.virtual_players = set()
+        self.bot_next = {}
+        self.bot_recent = {}
         zombie_count(len(self.names))  # 크기 조정 전 참가 인원을 검증한다.
         self.map = expand_map(original_map, len(self.names))
         self.connected = set(self.names)
         self.alive = set(self.names)
-        starts = starting_positions(self.map)
+        starts, self.monsters = spawn_layout(self.map, len(self.names))
         self.positions = {name: list(starts[i]) for i, name in enumerate(self.names)}
         self.inputs = {name: (0.0, 0.0, 0.0) for name in names}
         self.facing = {name: (0.0, -1.0) for name in names}
         self.jumps_left = {name: JUMP_LIMIT for name in self.names}
         self.jumping = {}  # 출발점·착지점과 진행 시간은 서버에서 관리한다.
-        self.monsters = spawn_zombies(self.positions.values(), self.map)
-        # 중앙 좀비 중 소수만 예측한다. 1~2명일 때 1마리, 3~4명일 때 2마리.
+        # 추가 좀비 중 소수만 예측한다. 1~2명일 때 1마리, 3~4명일 때 2마리.
         first_center = len(self.monsters) - len(CENTER_STARTS)
         interceptor_count = 1 + (len(self.names) >= 3)
         self.interceptors = set(range(first_center, first_center + interceptor_count))
@@ -373,7 +424,49 @@ class MonsterEscape:
             for node, old_weight in changed:
                 node.weight = old_weight
 
+    def update_virtual_players(self, now):
+        # 같은 이동/점프 판정을 사용하고, 판단은 약 0.4초마다 갱신한다.
+        for name in sorted(self.virtual_players & self.alive & self.connected):
+            if name in self.jumping or now < self.bot_next.get(name, 0):
+                continue
+            self.bot_next[name] = now + random.uniform(.32, .48)
+            pos = self.positions[name]
+            nearby = [m for m in self.monsters if math.dist(pos, m) <= 6]
+            danger = min((math.dist(pos, m) for m in nearby), default=6)
+            recent = self.bot_recent.setdefault(name, deque(maxlen=8))
+            recent.append(tuple(map(int, pos)))
+            choices = []
+            for dx, dy in ((1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)):
+                length = math.hypot(dx, dy)
+                dx, dy = dx / length, dy / length
+                end = list(pos)
+                for _ in range(6):
+                    end = move(end, dx * PLAYER_SPEED * TICK, dy * PLAYER_SPEED * TICK, self.map)
+                if math.dist(pos, end) < .2:
+                    continue
+                safety = min((math.dist(end, m) for m in nearby), default=6)
+                exits = sum(walkable(end[0]+x, end[1]+y, self.map) for x,y in ((1,0),(-1,0),(0,1),(0,-1)))
+                score = safety + .22 * exits + .3 * math.dist(pos,end) - .35 * recent.count(tuple(map(int,end)))
+                choices.append((score + random.uniform(0,.18), dx, dy))
+            if danger < 2.6 and self.jumps_left[name] > 0:
+                for dx, dy in ((1,0),(-1,0),(0,1),(0,-1)):
+                    target = jump_destination(pos, (dx,dy), self.map)
+                    if target is not None and min((math.dist(target,m) for m in nearby), default=6) > max(1.8,danger+.7):
+                        self.facing[name] = (dx,dy)
+                        self.inputs[name] = (0,0,now)
+                        self.try_jump(name)
+                        break
+                if name in self.jumping:
+                    continue
+            if choices:
+                _, dx, dy = max(choices)
+                self.inputs[name] = (dx,dy,now)
+                self.facing[name] = (dx,dy)
+            else:
+                self.inputs[name] = (0,0,now)
+
     def step(self, dt, now, tick):
+        self.update_virtual_players(now)
         for name in list(self.alive):
             jump = self.jumping.get(name)
             if jump is not None:
@@ -388,13 +481,12 @@ class MonsterEscape:
             self.positions[name] = move(self.positions[name], dx * PLAYER_SPEED * dt, dy * PLAYER_SPEED * dt, self.map)
         if not self.alive:
             return
+        if self.elapsed < CENTER_RELEASE_SECONDS:
+            return
         updates = path_updates_for_tick(len(self.monsters), tick)
         for i, monster in enumerate(self.monsters):
-            is_center = i >= len(self.initial_targets) - 3
-            if is_center and self.elapsed < CENTER_RELEASE_SECONDS:
-                continue
-            # 중앙 좀비는 2초가 되는 첫 틱에 길을 찾아 즉시 출발한다.
-            if i in updates or (is_center and not self.paths[i]):
+            # 모든 좀비는 준비 시간이 끝나면 즉시 길을 찾는다.
+            if i in updates or not self.paths[i]:
                 assigned = self.initial_targets[i]
                 target = assigned if self.elapsed < INITIAL_CHASE_SECONDS and assigned in self.alive else self.choose_target(i)
                 self.targets[i] = target
@@ -467,16 +559,19 @@ class MonsterEscape:
                   'last_survivor' if len(self.names) > 1 and len(self.alive) <= 1 else 'time_limit')
         return {'winner': winners[0] if winners else None, 'winners': winners, 'ranking': ranking, 'scores': scores, 'reason': reason}
 
+    def try_jump(self, name):
+        if self.jumps_left[name] <= 0 or name in self.jumping:
+            return
+        target = jump_destination(self.positions[name], self.facing[name], self.map)
+        if target is not None:
+            self.jumping[name] = {'start': list(self.positions[name]), 'target': target, 'elapsed': 0.0}
+            self.jumps_left[name] -= 1
+
     async def on_message(self, name, kind, data):
         if self.phase != 'playing' or name not in self.alive or name not in self.connected or not isinstance(data, dict):
             return
         if kind == 'me_jump':
-            if self.jumps_left[name] <= 0 or name in self.jumping:
-                return
-            target = jump_destination(self.positions[name], self.facing[name], self.map)
-            if target is not None:
-                self.jumping[name] = {'start': list(self.positions[name]), 'target': target, 'elapsed': 0.0}
-                self.jumps_left[name] -= 1
+            self.try_jump(name)
             return
         if kind != 'me_move':
             return

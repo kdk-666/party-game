@@ -10,7 +10,7 @@ async def noop(_):
 
 def open_arena():
     rows = tuple(['###############'] + ['#.............#'] * 13 + ['###############'])
-    game = MonsterEscape(['가'], noop, map_name='벌목장')
+    game = MonsterEscape(['가'], noop, map_name='버려진 물류창고')
     game.map = rows
     game.grid = Grid(matrix=[[int(cell != '#') for cell in row] for row in rows])
     game.positions['가'] = [11.5, 7.5]

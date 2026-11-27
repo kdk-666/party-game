@@ -51,7 +51,7 @@ def test_each_map_is_connected_and_supports_all_player_counts():
                         seen.add(point)
                         queue.append(point)
             assert seen == floor
-            assert list(game.positions.values()) == [list(p) for p in starting_positions(rows)[:count]]
+            assert all(sum(walkable(p[0]+dx,p[1]+dy,rows) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1))) >= 3 for p in game.positions.values())
             assert all(walkable(*p, rows) for p in game.positions.values())
             assert game.snapshot()['map_name'] == name
             assert game.initial_targets == [n for n in names for _ in range(2)] + [None] * 3
@@ -64,7 +64,7 @@ def test_each_map_is_connected_and_supports_all_player_counts():
             assert all(abs(m[0] - p[0]) > 4 or abs(m[1] - p[1]) > 4 for m in assigned for p in game.positions.values())
             for i, player in enumerate(names):
                 assert all(math.dist(m, game.positions[player]) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for m in game.monsters[i*2:i*2+2])
-            assert game.monsters[-3:] == [list(p) for p in center_zombie_positions(rows)]
+
 
 
 def test_random_map_does_not_repeat_immediately():
@@ -75,16 +75,17 @@ def test_random_map_does_not_repeat_immediately():
 def test_initial_targets_then_free_targeting_and_center_release(monkeypatch):
     game = MonsterEscape(['가', '나'], noop, map_name='정원 미로')
     monkeypatch.setattr(game, 'choose_target', lambda index: '나')
-    center_before = [z[:] for z in game.monsters[-3:]]
+    all_before = [z[:] for z in game.monsters]
+    center_before = all_before[-3:]
     for tick in range(5):
         game.elapsed = 1 + tick * .1
         game.step(.1, 10, tick)
     assert game.targets[:2] == ['가', '가']
-    assert game.monsters[-3:] == center_before
+    assert game.monsters == all_before
     assert game.snapshot()['reinforcements_in'] > 0
     game.elapsed = 1.99
     game.step(.01, 10, 5)
-    assert game.monsters[-3:] == center_before
+    assert game.monsters == all_before
     assert 0 < game.snapshot()['reinforcements_in'] < .02
     game.elapsed = 2.0
     game.step(.1, 10, 6)
@@ -103,7 +104,7 @@ def test_initial_targets_then_free_targeting_and_center_release(monkeypatch):
 def test_initial_target_eliminated_falls_back_to_other_player(monkeypatch):
     game = MonsterEscape(['가', '나'], noop, map_name='정원 미로')
     game.alive.remove('가')
-    game.elapsed = 1
+    game.elapsed = 2
     for tick in range(5):
         game.step(.01, 10, tick)
     assert game.targets[:2] == ['나', '나']
@@ -147,7 +148,7 @@ def test_zombie_count_and_spawn_safety_for_each_player_count():
         assert all(walkable(*z, game.map) for z in game.monsters)
         assert all(math.dist(z, p) >= MIN_PLAYER_SPAWN_DISTANCE for z in game.monsters for p in game.positions.values())
         assert all(math.dist(a, b) >= MIN_ZOMBIE_SPAWN_DISTANCE for i, a in enumerate(game.monsters[:-3]) for b in game.monsters[i + 1:])
-        assert game.monsters[-3:] == [list(p) for p in center_zombie_positions(game.map)]
+
 
 
 def test_all_zombie_paths_are_updated_once_per_five_ticks():
@@ -165,6 +166,8 @@ def test_starts_are_walkable_and_walls_block():
 
 def test_monster_uses_pathfinding_and_collision():
     game = MonsterEscape(['가'], noop, map_name='정원 미로')
+    game.elapsed = 2
+    game.positions['가'] = [1.5, 1.5]
     game.monsters[0] = [1.5, 2.5]
     game.step(0.1, 10, 0)
     assert game.monsters[0][1] < 2.5
@@ -197,10 +200,15 @@ def test_zombies_distribute_targets_and_flank_moving_players():
     assert game.choose_target(0) == '나'
     game.positions['가'] = [2.5, 4.5]
     game.inputs['가'] = (1, 0, 10)
+    # 측면 추격은 근접 직접 추격 범위 밖에서 검증한다.
+    game.monsters[1] = [6.5, 4.5]
     point = game.pursuit_point(1, '가', 10.1)
     assert point != game.positions['가']
     assert walkable(*point)
     assert game.pursuit_point(1, '가', 11) == game.positions['가']
+    # 근접 시에는 기존대로 현재 위치를 직접 추격한다.
+    game.monsters[1] = [3.5, 4.5]
+    assert game.pursuit_point(1, '가', 10.1) == game.positions['가']
 
 
 def test_interceptors_are_a_small_subset_of_center_zombies():
@@ -211,7 +219,7 @@ def test_interceptors_are_a_small_subset_of_center_zombies():
 
 
 def test_interceptor_predicts_player_speed_after_grace_period_and_stops_when_input_expires():
-    game = MonsterEscape(['가'], noop, map_name='벌목장')
+    game = MonsterEscape(['가'], noop, map_name='버려진 물류창고')
     game.positions['가'] = [3.5, 1.5]
     index = min(game.interceptors)
     game.monsters[index] = [10.5, 1.5]
@@ -248,7 +256,7 @@ def test_predicted_position_does_not_cross_walls_or_leave_map():
 
 
 def test_interceptor_uses_astar_to_reach_predicted_cell(monkeypatch):
-    game = MonsterEscape(['가'], noop, map_name='벌목장')
+    game = MonsterEscape(['가'], noop, map_name='버려진 물류창고')
     game.positions['가'] = [3.5, 4.5]
     game.inputs['가'] = (1, 0, 10)
     game.elapsed = 5
@@ -269,6 +277,7 @@ def test_interceptor_uses_astar_to_reach_predicted_cell(monkeypatch):
 
 def test_nearby_zombies_keep_some_space_without_walking_through_walls():
     game = MonsterEscape(['가'], noop, map_name='정원 미로')
+    game.elapsed = 2
     game.monsters[0] = [7.5, 7.5]
     game.monsters[1] = [7.6, 7.5]
     game.paths[0] = [[7.5, 6.5]]
@@ -345,3 +354,67 @@ def test_ties_and_disconnects_are_scored_safely():
         game.alive.clear()
         assert game.result()['winners'] == []
     asyncio.run(check())
+
+
+def test_random_spawn_repeated_safety():
+    import random
+    state = random.getstate()
+    try:
+        random.seed(2026)
+        for name, _ in MAPS:
+            for count in range(1, 5):
+                layouts = set()
+                for _ in range(100):
+                    game = MonsterEscape([str(i) for i in range(count)], noop, map_name=name)
+                    players = list(game.positions.values())
+                    layouts.add(tuple(map(tuple, players)))
+                    for i,p in enumerate(players):
+                        assert all(math.dist(p,q) >= 4 for q in players[i+1:])
+                        assert sum(walkable(p[0]+dx,p[1]+dy,game.map) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1))) >= 3
+                        for z in game.monsters:
+                            assert math.dist(p,z) >= 4
+                            game.grid.cleanup()
+                            path,_ = game.finder.find_path(game.grid.node(int(p[0]),int(p[1])),game.grid.node(int(z[0]),int(z[1])),game.grid)
+                            assert len(path) >= 6
+                        assert all(math.dist(p,z) >= 8 for z in game.monsters[:-3])
+                    assert all(math.dist(a,b) >= 1.5 for i,a in enumerate(game.monsters) for b in game.monsters[i+1:])
+                assert len(layouts) > 1
+    finally:
+        random.setstate(state)
+
+
+def test_warehouse_larger_maps_add_real_jump_routes():
+    from games.monster_escape.game import LUMBERYARD_MAP, expand_map, jump_destination
+    from games.monster_escape.manifest import GAME_INFO
+    counts = []
+    for n in range(1, 5):
+        rows = expand_map(LUMBERYARD_MAP, n)
+        preview = next(p['rows'] for p in GAME_INFO['test_map_previews'](n) if p['name'] == '버려진 물류창고')
+        assert preview == rows
+        counts.append(sum(jump_destination([x+.5, y+.5], d, rows) is not None
+                          for y, row in enumerate(rows) for x, c in enumerate(row)
+                          if c == '.' for d in ((1, 0), (0, 1))))
+    assert counts[0] == counts[1] < counts[2] < counts[3]
+
+
+def test_virtual_player_moves_without_controlling_real_player():
+    game = MonsterEscape(['real', 'bot'], noop)
+    game.virtual_players = {'bot'}
+    before = {n: list(p) for n,p in game.positions.items()}
+    game.step(.1, 10, 0)
+    assert game.positions['real'] == before['real']
+    assert 0 < math.dist(game.positions['bot'], before['bot']) <= monster_game.PLAYER_SPEED * .1 + 1e-9
+    game.alive.remove('bot')
+    game.step(.1, 11, 1)
+    assert game.bot_next['bot'] < 11
+
+
+def test_virtual_player_jumps_only_when_safe():
+    game = MonsterEscape(['bot'], noop)
+    game.virtual_players = {'bot'}
+    game.map = ('#######', '#.....#', '#..#..#', '#.....#', '#######')
+    game.positions['bot'] = [2.5, 2.5]
+    game.monsters = [[1.5, 2.5]]
+    game.update_virtual_players(10)
+    assert game.jumping['bot']['target'] == [4.5, 2.5]
+    assert game.jumps_left['bot'] == monster_game.JUMP_LIMIT - 1

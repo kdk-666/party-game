@@ -83,3 +83,41 @@ def test_selected_game_multiplayer_uses_standard_round_and_lobby(monkeypatch):
         assert until(p1, 'match_over')['total_scores'] == {'민지': 10, '서연': 10}
         until(p1, 'return_lobby')
         until(p2, 'return_lobby')
+
+
+def test_virtual_players_lifecycle(monkeypatch):
+    monkeypatch.setenv('PARTY_TEST_MODE', '1')
+    monkeypatch.setattr(main, 'GAME_REGISTRY', REGISTRY)
+    for key in ('LAST_GAME_RESULT_SECONDS', 'INTERMISSION_SECONDS', 'FINAL_SECONDS'):
+        monkeypatch.setattr(main, key, 0)
+    with TestClient(main.app) as client, client.websocket_connect('/ws/host') as host, client.websocket_connect('/ws/player') as p1, client.websocket_connect('/ws/player') as p2:
+        join(p1, '민지')
+        join(p2, '서연')
+        for invalid in (3, -1, True, '2', None):
+            host.send_json({'type': 'start', 'data': {'virtual_count': invalid}})
+            assert '가상 참가자' in until(host, 'start_error')['message']
+        host.send_json({'type': 'start', 'data': {'game_id': 'two', 'virtual_count': 2}})
+        a = until(p1, 'round_start')
+        b = until(p2, 'round_start')
+        assert set(a['ready']) == {'가상 참가자 1', '가상 참가자 2'}
+        assert len(a['players']) == 4
+        p1.send_json({'type': 'ready', 'data': {'token': a['token']}})
+        p2.send_json({'type': 'ready', 'data': {'token': b['token']}})
+        assert set(until(p1, 'test_game_started')['names']) == set(a['players'])
+        result = until(p1, 'match_over')
+        assert len(result['total_scores']) == 4
+        assert all(row['connected'] for row in result['standings'])
+        until(host, 'return_lobby')
+        assert set(until(host, 'lobby')['players']) == {'민지', '서연'}
+
+
+def test_virtual_players_disabled(monkeypatch):
+    monkeypatch.delenv('PARTY_TEST_MODE', raising=False)
+    with TestClient(main.app) as client, client.websocket_connect('/ws/host') as host, client.websocket_connect('/ws/player') as player:
+        join(player, '가')
+        host.send_json({'type': 'start', 'data': {'virtual_count': 1}})
+        assert '꺼져' in until(host, 'start_error')['message']
+
+
+def test_virtual_names_avoid_collision():
+    assert main.virtual_names(['가상 참가자 1'], 3) == ['가상 참가자 2', '가상 참가자 3', '가상 참가자 4']

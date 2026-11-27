@@ -5,8 +5,9 @@ MAX_ROUNDS = 8
 
 
 class Match:
-    def __init__(self, players, game_registry, selected_game_id=None):
+    def __init__(self, players, game_registry, selected_game_id=None, selected_map_name=None):
         self.players = list(players)
+        self.virtual_players = ()
         self.game_registry = dict(game_registry)
 
         if not self.players:
@@ -22,6 +23,10 @@ class Match:
             game_ids = list(self.game_registry)
             count = min(MAX_ROUNDS, len(game_ids))
             self.game_ids = random.sample(game_ids, count)
+        if selected_map_name is not None:
+            if selected_game_id is None or not isinstance(selected_map_name, str) or selected_map_name not in self.game_registry[selected_game_id].get("test_maps", []):
+                raise ValueError("선택할 수 없는 맵입니다.")
+        self.selected_map_name = selected_map_name
         self.completed_rounds = 0
         self.total_scores = {name: 0 for name in self.players}
         self.active_game_id = None

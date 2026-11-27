@@ -1,4 +1,4 @@
-from games.monster_escape.game import BLACKOUT_ENABLED, JUMP_LIMIT, MonsterEscape
+from games.monster_escape.game import BLACKOUT_ENABLED, JUMP_LIMIT, MAPS, MonsterEscape, expand_map
 
 GAME_ID = 'monster_escape'
 GAME_INFO = {
@@ -12,6 +12,8 @@ GAME_INFO = {
         {'icon': '🏆', 'title': '승리', 'text': '끝까지 살아남거나 오래 버텨요.'},
     ], 'tip': '손을 떼면 멈추고 손전등은 마지막 이동 방향을 비춰요.' if BLACKOUT_ENABLED else '손을 떼면 캐릭터가 멈춰요.'},
     'game_class': MonsterEscape,
+    'test_maps': [name for name, _ in MAPS],
+    'test_map_previews': lambda count: [{'name': name, 'rows': expand_map(rows, count)} for name, rows in MAPS],
     'ui': {'host': {'script': 'game.js', 'setup': 'setupMonsterEscape'},
            'player': {'script': 'game.js', 'setup': 'setupMonsterEscape'}, 'styles': ['game.css']},
 }

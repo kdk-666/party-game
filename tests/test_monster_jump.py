@@ -92,6 +92,7 @@ def test_jump_invulnerability_ends_on_landing(monkeypatch):
     game = make_game()
     game.positions['가'] = [3.5, 2.5]
     game.facing['가'] = (1, 0)
+    game.elapsed = 2
     game.monsters = [[3.5, 2.5] for _ in game.monsters]
     send(game, '가', 'me_jump')
     game.step(.2, time.monotonic(), 0)

@@ -19,13 +19,15 @@ _last_maze = None            # 가장 최근에 쓴 미로 이름 (연속으로 
 
 
 class TiltBall:
-    def __init__(self, names, broadcast):
+    def __init__(self, names, broadcast, map_name=None):
         self.names = list(names)
         self.connected = set(names)
         self.broadcast = broadcast
         global _last_maze
         pool = [m for m in MAZES if m["name"] != _last_maze] or MAZES        # 직전 판과 같은 미로는 피한다
-        m = random.choice(pool)
+        m = random.choice(pool) if map_name is None else next((item for item in MAZES if item["name"] == map_name), None)
+        if m is None:
+            raise ValueError("선택할 수 없는 맵입니다.")
         _last_maze = m["name"]
         self.maze = Maze(m["name"], m["rows"], m.get("level", 0))
         self.world = TiltWorld(self.maze, self.names, time_limit=TIME_LIMIT)
