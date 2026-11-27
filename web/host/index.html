@@ -23,6 +23,11 @@
     <h2>참가자</h2>
     <p id="lobby-count" class="lobby-count">0 / 4명 참가 중</p>
     <ul id="lobby-players" class="lobby-slots"></ul>
+    <div id="test-mode" class="test-mode" hidden>
+      <label for="test-game">🧪 테스트 모드 · 게임 선택</label>
+      <select id="test-game"><option value="">일반 대회 (랜덤)</option></select>
+      <p>게임을 고르면 해당 게임만 한 판 진행해요.</p>
+    </div>
     <button id="start" class="lobby-button" disabled>게임 시작</button>
     <p id="host-connection" class="lobby-footnote">서버에 연결하고 있어요.</p>
   </section>
@@ -69,7 +74,6 @@ ws.addEventListener("message", event => {
 });
 if (setupGameRouter(ws, "host", () => null, preparationGuide)) {
   setupHostLobby(ws);
-  document.getElementById("start").onclick = () => ws.send(JSON.stringify({type: "start", data: {}}));
 } else {
   ws.close();
   document.getElementById("host-connection").textContent = "게임 화면을 불러오지 못했어요. 새로고침해 주세요.";

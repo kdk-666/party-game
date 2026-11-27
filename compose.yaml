@@ -1,6 +1,8 @@
 services:
   game:
     build: .
+    environment:
+      PARTY_TEST_MODE: ${PARTY_TEST_MODE:-0}
     expose:
       - "8000"
 

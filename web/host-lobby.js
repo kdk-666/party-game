@@ -6,6 +6,8 @@ function setupHostLobby(ws) {
   const start = document.getElementById('start');
   const back = document.getElementById('host-back');
   const connection = document.getElementById('host-connection');
+  const testMode = document.getElementById('test-mode');
+  const testGame = document.getElementById('test-game');
   let names = [];
 
   function drawLobby() {
@@ -20,6 +22,11 @@ function setupHostLobby(ws) {
     start.disabled = names.length === 0 || ws.readyState !== WebSocket.OPEN;
   }
   function showGame() { waiting.hidden = true; game.hidden = false; }
+  start.addEventListener('click', () => {
+    if (start.disabled || ws.readyState !== WebSocket.OPEN) return;
+    const selected = !testMode.hidden && testGame.value;
+    ws.send(JSON.stringify({type: 'start', data: selected ? {game_id: selected} : {}}));
+  });
   back.addEventListener('click', () => {
     game.hidden = true; waiting.hidden = false; back.hidden = true;
     document.getElementById('bg').style.background = ''; drawLobby();
@@ -30,7 +37,18 @@ function setupHostLobby(ws) {
     const msg = JSON.parse(event.data), data = msg.data || {};
     if (msg.type === 'lobby') {
       names = Array.isArray(data.players) ? data.players : [];
+      const selected = testGame.value;
+      testMode.hidden = data.test_mode !== true;
+      testGame.replaceChildren(new Option('일반 대회 (랜덤)', ''));
+      if (!testMode.hidden && Array.isArray(data.test_games)) {
+        data.test_games.forEach(item => {
+          if (typeof item.id === 'string' && typeof item.name === 'string') testGame.add(new Option(item.name, item.id));
+        });
+      }
+      if (Array.from(testGame.options).some(option => option.value === selected)) testGame.value = selected;
       drawLobby();
+    } else if (msg.type === 'start_error') {
+      connection.textContent = data.message || '게임을 시작하지 못했어요.';
     } else if (msg.type === 'countdown') {
       back.hidden = true; showGame();
     } else if (msg.type === 'match_over') {

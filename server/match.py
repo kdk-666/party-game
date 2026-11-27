@@ -5,7 +5,7 @@ MAX_ROUNDS = 8
 
 
 class Match:
-    def __init__(self, players, game_registry):
+    def __init__(self, players, game_registry, selected_game_id=None):
         self.players = list(players)
         self.game_registry = dict(game_registry)
 
@@ -14,9 +14,14 @@ class Match:
         if not self.game_registry:
             raise ValueError("등록된 게임이 없습니다.")
 
-        game_ids = list(self.game_registry)
-        count = min(MAX_ROUNDS, len(game_ids))
-        self.game_ids = random.sample(game_ids, count)
+        if selected_game_id is not None:
+            if not isinstance(selected_game_id, str) or selected_game_id not in self.game_registry:
+                raise ValueError('등록되지 않은 게임입니다.')
+            self.game_ids = [selected_game_id]
+        else:
+            game_ids = list(self.game_registry)
+            count = min(MAX_ROUNDS, len(game_ids))
+            self.game_ids = random.sample(game_ids, count)
         self.completed_rounds = 0
         self.total_scores = {name: 0 for name in self.players}
         self.active_game_id = None

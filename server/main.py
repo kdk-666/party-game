@@ -1,6 +1,7 @@
 ﻿import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 
 import qrcode
@@ -68,8 +69,18 @@ async def to_everyone(msg):
     await send_all(hosts + list(players), msg)
 
 
+def test_mode_enabled():
+    # 기본적으로 꺼져 있으며, 서버 시작 환경에서 명시적으로 켜야 한다.
+    return os.environ.get('PARTY_TEST_MODE') == '1'
+
+
 async def send_lobby():
-    await to_hosts({"type": "lobby", "data": {"players": list(players.values())}})
+    enabled = test_mode_enabled()
+    await to_hosts({"type": "lobby", "data": {
+        "players": list(players.values()),
+        "test_games": [{'id': game_id, 'name': info['name']} for game_id, info in GAME_REGISTRY.items()] if enabled else [],
+        "test_mode": enabled,
+    }})
 def make_match_game(match, info):
     global game
 
@@ -235,11 +246,19 @@ async def ws_host(ws: WebSocket):
                     (game is not None and game.running)
                     or (match_task is not None and not match_task.done())
             ):
+                data = msg.get('data', {})
+                if not isinstance(data, dict):
+                    await ws.send_json({'type': 'start_error', 'data': {'message': '시작 요청이 올바르지 않아요.'}})
+                    continue
+                selected = data.get('game_id')
+                if selected is not None and not test_mode_enabled():
+                    await ws.send_json({'type': 'start_error', 'data': {'message': '게임 선택 테스트 모드가 꺼져 있어요.'}})
+                    continue
                 try:
-                    match = Match(list(players.values()), GAME_REGISTRY)
+                    match = Match(list(players.values()), GAME_REGISTRY, selected_game_id=selected)
                 except ValueError as error:
                     print("대회를 시작할 수 없습니다:", error, flush=True)
-                    await ws.send_json({"type": "match_error", "data": {"message": str(error)}})
+                    await ws.send_json({"type": "start_error", "data": {"message": str(error)}})
                     continue
                 active_match = match
                 match_task = asyncio.create_task(run_match(match))
