@@ -59,3 +59,47 @@ def test_periodic_updates_reflect_green_motion_and_stop_on_red(monkeypatch):
         assert updates and all(u['remaining'] is not None for u in updates)
         assert updates[-1]['dist']['민지'] == stopped_at
     asyncio.run(run())
+
+
+def test_virtual_red_light_motion_and_real_player_isolation():
+    async def run():
+        async def broadcast(message):
+            pass
+        game = red_light.RedLight(['real', 'bot'], broadcast)
+        game.running = True
+        game.virtual_players = {'bot'}
+        game.bot_profiles['bot'] = (2.5, .2, .2)
+        now = asyncio.get_running_loop().time()
+        await game.set_state('green')
+        game.bot_green_since = now - 1
+        await game.update_virtual_players(now)
+        assert game.motion['bot'] == 2.5
+        assert game.motion['real'] == 0
+        game.red_since = now - 1
+        await game.set_state('red')
+        await game.update_virtual_players(now)
+        assert game.motion['bot'] == 0
+        assert 'bot' in game.alive
+        await game.remove_player('bot')
+        game.motion['bot'] = 1
+        await game.update_virtual_players(now)
+        assert game.motion['bot'] == 1
+    asyncio.run(run())
+
+
+def test_virtual_red_light_late_reaction_uses_normal_elimination():
+    async def run():
+        async def broadcast(message):
+            pass
+        game = red_light.RedLight(['bot'], broadcast)
+        game.running = True
+        game.virtual_players = {'bot'}
+        game.bot_profiles['bot'] = (2.5, .2, 1.0)
+        game.motion['bot'] = 2.5
+        now = asyncio.get_running_loop().time()
+        game.red_since = now - .55
+        await game.set_state('red')
+        await game.update_virtual_players(now)
+        assert game.out == ['bot']
+        assert game.end_event.is_set()
+    asyncio.run(run())

@@ -4,6 +4,7 @@
 순위: 먼저 도착한 순서, 못 도착하면 가장 멀리 간 순서 (물리와 순위 계산은 tilt_maze.py)
 """
 import asyncio
+import math
 import random
 
 from games.tilt_ball.maze import MAZES, Maze, TiltWorld
@@ -38,6 +39,10 @@ class TiltBall:
         self.end_reason = "time"         # 끝난 이유: all_finished(모두 도착) / last_one(마지막 한 명만 남음) / time(시간 끝)
         self.running = False
         self.unified_preparation = False
+        self.virtual_players = set()
+        self.bot_dist = self.maze._goal_distances(avoid_holes=True)
+        self.bot_targets = {}
+        self.bot_speeds = {}
 
     def preparation_data(self):
         """대회의 공통 준비 화면에서 사용할 실제 게임 맵을 반환한다."""
@@ -52,6 +57,8 @@ class TiltBall:
             "maze": {"name": self.maze.name, "rows": self.maze.rows, "level": self.maze.level},
             "names": self.names, "time_limit": TIME_LIMIT, "timeout": INTRO_TIMEOUT,
             "unified_preparation": self.unified_preparation}})
+        for name in sorted(self.virtual_players & self.connected):
+            await self.on_message(name, "tb_ready", {})
         if not self.unified_preparation:
             try:
                 await asyncio.wait_for(self.ready_event.wait(), timeout=INTRO_TIMEOUT)
@@ -88,6 +95,7 @@ class TiltBall:
             await asyncio.sleep(TICK)
             now = loop.time()
             dt, prev = min(now - prev, 0.1), now
+            self.update_virtual_players()
             self.world.step(dt)
             if not grace_set:
                 done = [b.finish_time for b in self.world.balls.values() if b.finish_time is not None]
@@ -109,6 +117,35 @@ class TiltBall:
                 break
         else:
             self.end_reason = "time"
+
+    def update_virtual_players(self):
+        """Follow safe cell centers using the same tilt input as phones."""
+        if self.phase != "race":
+            return
+        for name in sorted(self.virtual_players & self.connected):
+            b = self.world.balls.get(name)
+            if b is None or b.state != "rolling":
+                self.bot_targets.pop(name, None)
+                self.world.set_tilt(name, 0, 0)
+                continue
+            if name not in self.bot_speeds:
+                self.bot_speeds[name] = random.uniform(1.7, 2.5)
+            cell = (int(b.x), int(b.y))
+            target = self.bot_targets.get(name, cell)
+            if abs(target[0] - cell[0]) + abs(target[1] - cell[1]) > 1:
+                target = cell
+            dx, dy = target[0] + .5 - b.x, target[1] + .5 - b.y
+            if math.hypot(dx, dy) < .18:
+                c, r = target
+                neighbors = [(c+1,r),(c-1,r),(c,r+1),(c,r-1)]
+                choices = [n for n in neighbors if self.bot_dist.get(n, math.inf) < self.bot_dist.get(target, math.inf)]
+                if choices:
+                    target = min(choices, key=self.bot_dist.get)
+            self.bot_targets[name] = target
+            dx, dy = target[0] + .5 - b.x, target[1] + .5 - b.y
+            speed = self.bot_speeds[name]
+            vx, vy = max(-speed,min(speed,dx*5)), max(-speed,min(speed,dy*5))
+            self.world.set_tilt(name, (vx-b.vx)*.55, (vy-b.vy)*.55)
 
     # ----- 폰이 보낸 메시지 (main.py가 모르는 메시지를 그대로 넘겨 준다) -----
     async def on_message(self, name, kind, data):

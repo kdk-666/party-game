@@ -1,6 +1,9 @@
 """컬러헌트: 제시된 색과 가장 비슷한 물건을 사진으로 찍어 점수를 받는 게임."""
 import asyncio
 import base64
+import io
+
+from PIL import Image
 import random
 import secrets
 
@@ -29,6 +32,7 @@ COLORS = [
 class ColorHunt:
     def __init__(self, names, broadcast):
         self.connected = set(names)
+        self.virtual_players = set()
         self.totals = {n: 0 for n in names}
         self.round_scores = {}     # 이번 색에서 낸 사람 -> 점수
         self.round_rgb = {}        # 이번 색에서 낸 사람 -> 사진 평균색
@@ -86,13 +90,20 @@ class ColorHunt:
         await self.broadcast({"type": "ch_round", "data": {
             "index": index + 1, "total": total, "color_name": color_name,
             "hex": hex_color, "seconds": ROUND_SECONDS, "round_token": self.round_token}})
-        remaining = max(0, self.round_deadline - asyncio.get_running_loop().time())
-        if remaining > 0 and not self.all_in.is_set():
-            try:
-                await asyncio.wait_for(self.all_in.wait(), timeout=remaining)
-            except asyncio.TimeoutError:
-                pass
-        self.accepting = False
+        bots = [asyncio.create_task(self.submit_virtual_photo(n, self.round_token, self.target))
+                for n in sorted(set(self.virtual_players) & self.connected)]
+        try:
+            remaining = max(0, self.round_deadline - asyncio.get_running_loop().time())
+            if remaining > 0 and not self.all_in.is_set():
+                try:
+                    await asyncio.wait_for(self.all_in.wait(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    pass
+        finally:
+            self.accepting = False
+            for task in bots:
+                task.cancel()
+            await asyncio.gather(*bots, return_exceptions=True)
 
         results = {}
         for n in self.connected:
@@ -103,6 +114,18 @@ class ColorHunt:
             "hex": hex_color, "color_name": color_name, "results": results,
             "totals": {n: self.totals[n] for n in self.connected}}})
         await asyncio.sleep(RESULT_SECONDS)
+
+    async def submit_virtual_photo(self, name, token, target):
+        # Simulate searching for a nearby object, not a perfect target match.
+        await asyncio.sleep(random.uniform(0.15, 0.75) * ROUND_SECONDS)
+        if name not in self.connected or not self.accepting or token != self.round_token:
+            return
+        rgb = tuple(max(0, min(255, c + random.choice((-1, 1)) * random.randint(12, 65)))
+                    for c in target)
+        buf = io.BytesIO()
+        Image.new("RGB", (60, 60), rgb).save(buf, "JPEG")
+        await self.on_photo(name, {"image": base64.b64encode(buf.getvalue()).decode(),
+                                   "round_token": token})
 
     def _check_all_in(self):
         if all(n in self.round_scores for n in self.connected):

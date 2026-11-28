@@ -90,3 +90,41 @@ def test_everyone_left_cancels(monkeypatch):
 
     assert asyncio.run(scenario()) is None
     assert "game_cancelled" in sent
+
+
+def test_virtual_players_submit_through_photo_pipeline(monkeypatch):
+    fast(monkeypatch)
+    monkeypatch.setattr(color_hunt, 'ROUND_SECONDS', 0.1)
+    events = []
+
+    async def broadcast(msg):
+        events.append(msg)
+
+    async def scenario():
+        g = ColorHunt(['bot', 'human'], broadcast)
+        g.virtual_players = {'bot'}
+        result = await g.run()
+        assert g.submitted == {'bot'}
+        assert result['not_submitted'] == ['human']
+        assert result['scores']['bot'] == 1000
+        assert result['scores']['human'] == 0
+
+    asyncio.run(scenario())
+    assert len([e for e in events if e['type'] == 'ch_submitted']) == 2
+
+
+def test_virtual_photo_does_not_cross_rounds(monkeypatch):
+    monkeypatch.setattr(color_hunt, 'ROUND_SECONDS', 0)
+
+    async def broadcast(msg):
+        raise AssertionError('stale bot photo broadcast')
+
+    async def scenario():
+        g = ColorHunt(['bot'], broadcast)
+        g.virtual_players = {'bot'}
+        g.accepting = True
+        g.round_token = 'new'
+        await g.submit_virtual_photo('bot', 'old', (100, 100, 100))
+        assert not g.round_scores
+
+    asyncio.run(scenario())

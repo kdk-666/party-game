@@ -238,3 +238,30 @@ def test_maze_is_random_each_game_and_never_repeats_back_to_back():
     names = [TiltBall(["a"], Bus()).maze.name for _ in range(300)]
     assert set(names) == {m["name"] for m in MAZES}                # 모든 미로가 골고루 나온다
     assert all(a != b for a, b in zip(names, names[1:]))           # 같은 미로가 연속으로 나오지 않는다
+
+
+@pytest.mark.parametrize('map_name', [m['name'] for m in tilt_ball.MAZES])
+def test_virtual_player_finishes_real_maze(map_name):
+    g = TiltBall(['bot', 'human'], Bus(), map_name=map_name)
+    g.virtual_players = {'bot'}
+    g.phase = 'race'
+    g.bot_speeds['bot'] = 1.7
+    for _ in range(2700):
+        g.update_virtual_players()
+        g.world.step(1/30)
+        if g.world.balls['bot'].finish_time is not None:
+            break
+    assert g.world.balls['bot'].finish_time is not None
+    assert g.world.balls['bot'].falls == 0
+    assert g.world.balls['human'].tilt == (0, 0)
+
+
+def test_virtual_player_ready_and_races(monkeypatch):
+    fast(monkeypatch, COUNT_FROM=0)
+    async def scenario():
+        g = TiltBall(['bot'], Bus())
+        g.virtual_players = {'bot'}
+        result = await asyncio.wait_for(g.run(), 10)
+        assert g.ready == {'bot'}
+        assert result['reason'] == 'all_finished'
+    asyncio.run(scenario())

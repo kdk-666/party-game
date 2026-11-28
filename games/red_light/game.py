@@ -29,6 +29,9 @@ class RedLight:
         self.end_event = asyncio.Event()
         self.end_time = None
         self.broadcast = broadcast
+        self.virtual_players = set()
+        self.bot_profiles = {}
+        self.bot_green_since = None
 
     async def run(self):
         self.running = True
@@ -127,8 +130,9 @@ class RedLight:
         # 0.1초마다 초록불인 동안 거리를 줄이고 화면에 알린다
         while True:
             await asyncio.sleep(TICK)
+            now = asyncio.get_running_loop().time()
+            await self.update_virtual_players(now)
             if self.state == "green":
-                now = asyncio.get_running_loop().time()
 
                 for n in list(self.alive):
                     elapsed = now - self.motion_time[n]
@@ -142,6 +146,22 @@ class RedLight:
                     self.end_event.set()  # 도착자가 생기면 종료 신호
             await self.broadcast({"type": "dist", "data": self.screen_state()})
 
+    async def update_virtual_players(self, now):
+        if not self.running or self.end_event.is_set():
+            return
+        for name in sorted(self.virtual_players & self.alive & self.connected):
+            if name not in self.bot_profiles:
+                self.bot_profiles[name] = (random.uniform(1.4, 2.8),
+                                           random.uniform(.15, .45),
+                                           random.uniform(.15, .65))
+            speed, start_delay, stop_delay = self.bot_profiles[name]
+            if self.state == "green":
+                elapsed = now - self.bot_green_since if self.bot_green_since is not None else 0
+                value = speed if elapsed >= start_delay else 0.0
+            else:
+                value = self.motion[name] if now - self.red_since < stop_delay else 0.0
+            await self.on_motion(name, value)
+
     def screen_state(self):
         """클라이언트가 실제 경기 상태와 서버 기준 남은 시간을 그릴 수 있게 한다."""
         remaining = None if self.end_time is None else max(0.0, self.end_time - asyncio.get_running_loop().time())
@@ -152,6 +172,8 @@ class RedLight:
 
     async def set_state(self, state):
         self.state = state
+        if state == "green":
+            self.bot_green_since = asyncio.get_running_loop().time()
         await self.broadcast({"type": "state", "data": {"state": state, **self.screen_state()}})
 
     async def on_motion(self, name, value):
