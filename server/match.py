@@ -8,6 +8,7 @@ class Match:
     def __init__(self, players, game_registry, selected_game_id=None, selected_map_name=None):
         self.players = list(players)
         self.virtual_players = ()
+        self.virtual_invincible = False
         self.game_registry = dict(game_registry)
 
         if not self.players:

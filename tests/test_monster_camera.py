@@ -119,3 +119,20 @@ console.log(JSON.stringify([f(a, b, 0.5), f(a, b, 4)]));
     assert halfway['monsters'] == [[2, 3]]
     assert end['players']['a']['x'] == 2
     assert end['monsters'] == [[3, 5]]
+
+
+def test_spectator_selects_only_connected_survivors_and_cycles():
+    node = shutil.which('node')
+    if not node:
+        pytest.skip('Node.js unavailable')
+    js = Path(__file__).resolve().parents[1] / 'games/monster_escape/client/game.js'
+    script = '''
+const {monsterEscapeSpectator: f} = require(process.argv[1]);
+const p = {me:{alive:false,connected:true}, a:{alive:true,connected:true}, b:{alive:true,connected:true}, c:{alive:true,connected:false}};
+const results = [f(p,'me',null), f(p,'me','a',1), f(p,'me','a',-1), f(p,'a',null)];
+p.a.alive = false; results.push(f(p,'me','a'));
+p.b.alive = false; results.push(f(p,'me','b'));
+console.log(JSON.stringify(results));
+'''
+    result = subprocess.run([node, '-e', script, str(js)], check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout) == ['a', 'b', 'b', None, 'b', None]

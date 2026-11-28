@@ -6,8 +6,6 @@
 .me-kicker { color: #a8d6bd; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
 .me-panel [data-time] { color: #e3f7da; background: #344d46; border: 1px solid #6e9182; border-radius: 999px; padding: 8px 12px; white-space: nowrap; font-size: 13px; }
 .me-panel p { margin: 10px 0; color: #d8e7df; }
-.me-panel [data-status][data-lighting="warning"] { color: #ffda83; font-weight: 800; }
-.me-panel [data-status][data-lighting="blackout"] { color: #f8eab3; font-weight: 800; }
 .me-board { width: min(100%, 57vh); margin: 0 auto; border: 4px solid #738d81; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 26px #06121b80; }
 .me-panel canvas { display: block; width: 100%; height: auto; }
 .me-control { padding: 4px 0 20px; }
@@ -88,3 +86,72 @@
   .me-finale-card .me-finale-next { margin-top: 10px; font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .me-finale, .me-finale-card, .me-finale-mark span, .me-finale-particles i { animation: none; } }
+
+.me-spectator[hidden] { display: none !important; }
+.me-spectator { padding: 8px 0 20px; }
+.me-spectator-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.me-spectator-row > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.me-spectator-row button { min-width: 48px; min-height: 48px; border: 1px solid #91afa0; border-radius: 12px; background: #405951; color: white; font-size: 28px; touch-action: manipulation; }
+.me-spectator-row button:disabled { opacity: .4; }
+.me-spectator-row p { font-size: 13px; }
+.me-audio { display:flex; justify-content:flex-end; gap:6px; }
+.me-audio[hidden] { display:none; }
+.me-audio button { border:1px solid #62666c; border-radius:6px; background:#252a30; color:#eee; padding:5px 9px; font-size:12px; }
+
+/* Compact arcade HUD; controls retain their existing event handlers. */
+.me-screen { background: radial-gradient(ellipse at top, #29343b, #12181e 70%); }
+.me-panel { box-sizing: border-box; padding: 10px 12px; }
+.me-kicker { color: #d9b976; letter-spacing: .16em; }
+.me-panel [data-time] { background: #20272e; border-color: #5b5140; color: #f3d18b; border-radius: 10px; font-size: clamp(18px, 5vw, 28px); font-variant-numeric: tabular-nums; }
+.me-map-strip { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px auto; text-align: left; }
+.me-map-strip [data-map-name] { font-size: 16px; color: #f4e7cb; }
+.me-map-strip [data-survivors] { color: #b9d6bd; font-size: 12px; white-space: nowrap; }
+.me-board { border: 2px solid #59636b; border-radius: 10px; }
+.me-player .me-panel [data-status] { font-size: 12px; margin: 5px 0; }
+.me-player .me-control { padding: 6px 0 8px; }
+.me-player .me-control > p { margin: 4px 0 8px; font-size: 11px; }
+.me-player .me-control-row { flex-direction: row; justify-content: space-around; gap: 12px; }
+.me-stick { background: #29333c; border-color: #697985; }
+.me-knob { background: #b9c6cf; }
+.me-charge { width: 88px; height: 5px; border-radius: 5px; overflow: hidden; background: #424952; }
+.me-charge i { display: block; width: var(--charge, 100%); height: 100%; background: #e9c27b; }
+.me-jump-hint { min-height: 15px; }
+.me-spectator-row button { background: #29333c; border-color: #697985; }
+@media (max-height: 720px) { .me-player .me-board { width: min(100%, 49dvh); } .me-player .me-stick { width: 112px; height: 112px; } .me-player .me-jump { width: 88px; height: 88px; } }
+
+/* Minimal player HUD: jump on the left, movement on the right. */
+.me-player { background: #171d23; }
+.me-player .me-panel { max-width: 540px; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); }
+.me-player .me-kicker { display: none; }
+.me-player .me-heading h1 { font-size: 18px; font-weight: 650; }
+.me-player .me-panel [data-time] { background: transparent; border: 0; color: #eef2f5; padding: 4px 0; font-weight: 750; }
+.me-player .me-map-strip [data-map-name] { color: #eef2f5; font-size: 15px; }
+.me-player .me-map-strip [data-survivors] { color: #c4ccd4; }
+.me-player .me-board { box-sizing: border-box; border: 1px solid #59636b; border-radius: 6px; box-shadow: none; }
+.me-player .me-control-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); justify-items: center; align-items: start; gap: 12px; }
+.me-player .me-jump-area { width: 100%; max-width: 140px; gap: 5px; }
+.me-player .me-jump { width: 96px; height: 96px; background: #252e37; border: 1px solid #aab6c0; color: #eef2f5; box-shadow: none; }
+.me-player .me-jump small { color: #e1e7ec; }
+.me-player .me-stick { width: 112px; height: 112px; background: #252e37; border: 1px solid #77838e; box-shadow: none; }
+.me-player .me-knob { width: 48px; height: 48px; background: #aebbc6; box-shadow: none; }
+.me-player .me-charge { background: #39434d; height: 4px; }
+.me-player .me-charge i { background: #b8cbdc; }
+.me-player .me-jump-hint { color: #bac4cd; font-size: 11px; }
+.me-player .me-audio button { background: transparent; border-color: #48535d; color: #cbd4dc; }
+.me-player .me-spectator-row button { background: #252e37; border-color: #77838e; border-radius: 8px; }
+@media (max-width: 340px), (max-height: 720px) {
+  .me-player .me-jump { width: 84px; height: 84px; }
+  .me-player .me-stick { width: 100px; height: 100px; }
+}
+
+/* Use the available phone width while reserving space for the HUD and controls. */
+.me-player .me-panel { padding: 6px 6px max(8px, env(safe-area-inset-bottom)); }
+.me-player .me-board { width: min(100%, 66vh); width: min(100%, 66dvh, max(49dvh, calc(100dvh - 230px - env(safe-area-inset-bottom, 0px)))); }
+.me-player .me-heading h1 { margin: 2px 0; }
+.me-player .me-map-strip { margin: 4px auto; }
+.me-player .me-panel [data-status] { margin: 3px 0; }
+.me-player .me-control { padding: 3px 0 4px; }
+.me-player .me-control > p { margin: 2px 0 4px; }
+@media (max-height: 720px) {
+  .me-player .me-board { width: min(100%, 60vh); width: min(100%, 60dvh, max(49dvh, calc(100dvh - 210px - env(safe-area-inset-bottom, 0px)))); }
+}

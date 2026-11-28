@@ -42,11 +42,86 @@ GARDEN_MAP = (
     '#......#......#',
     '###############',
 )
+# 도심: ㄱ자 건물과 엇갈린 차량, 중앙 교차로. 인원별 독립 설계.
 PARK_MAP = (
-    '###############', '#.............#', '#...#.....#...#', '#.###.....###.#',
-    '#.............#', '#..#..###..#..#', '#..#.......#..#', '#.............#',
-    '#..#.......#..#', '#..#..###..#..#', '#.............#', '#.#.#.....###.#',
-    '#...#.....#...#', '#.............#', '###############',
+    '###############',
+    '#.............#',
+    '#...#.#...###.#',
+    '#.###.#...###.#',
+    '#.#...#.....#.#',
+    '#.##.......##.#',
+    '#........#....#',
+    '#.###....#....#',
+    '#..........##.#',
+    '#.............#',
+    '#.##...#......#',
+    '#.##.#.#.##.#.#',
+    '#.####.#.####.#',
+    '#.............#',
+    '###############',
+)
+CITY_LARGE_MAPS = {
+    3: (
+        '#################',
+        '#...............#',
+        '#.####..#..####.#',
+        '#.##.#..#..#.##.#',
+        '#.##....#....##.#',
+        '#.##....#....##.#',
+        '#.##.........##.#',
+        '#.........#.....#',
+        '#.####....#.....#',
+        '#.........#.....#',
+        '#....#......###.#',
+        '#....#..#.......#',
+        '#.##....#.......#',
+        '#..####.#.###.#.#',
+        '#.#####...#####.#',
+        '#...............#',
+        '#################',
+    ),
+    4: (
+        '###################',
+        '#.................#',
+        '#...#....#..#####.#',
+        '#.#####..#..#.###.#',
+        '#.#......#.....##.#',
+        '#.##.....#.....#..#',
+        '#.##.##........##.#',
+        '#....##....#...##.#',
+        '#..........#......#',
+        '#.####.....#......#',
+        '#.............###.#',
+        '#.....##..........#',
+        '#........#..#.....#',
+        '#.##.....#..#..##.#',
+        '#.#......#.....#..#',
+        '#.######.#..#.###.#',
+        '#.###.##....#####.#',
+        '#.................#',
+        '###################',
+    ),
+}
+GARDEN_FOUR_MAP = (
+    '###################',
+    '#.................#',
+    '#..##..#####..##..#',
+    '#..##.........##..#',
+    '#.....#...#.......#',
+    '#.###.#...#.###...#',
+    '#.................#',
+    '#..#...###...#....#',
+    '#..#.........#....#',
+    '#.....##.##.......#',
+    '#....#.........#..#',
+    '#....#...###...#..#',
+    '#.................#',
+    '#...###.#...#.###.#',
+    '#.......#...#.....#',
+    '#..##.........##..#',
+    '#..##..#####..##..#',
+    '#.................#',
+    '###################',
 )
 LUMBERYARD_MAP = (
     '###############',
@@ -108,7 +183,7 @@ WAREHOUSE_LARGE_MAPS = {
         '###################',
     ),
 }
-MAPS = (('정원 미로', GARDEN_MAP), ('버려진 물류창고', LUMBERYARD_MAP), ('공원 갈림길', PARK_MAP))
+MAPS = (('정원 미로', GARDEN_MAP), ('버려진 물류창고', LUMBERYARD_MAP), ('폐허가 된 도심', PARK_MAP))
 MAP = GARDEN_MAP  # 기존 유틸리티의 기본 맵
 STARTS = [(1.5, 1.5), (13.5, 1.5), (1.5, 13.5), (13.5, 13.5)]
 CENTER_STARTS = [(6.5, 7.5), (7.5, 7.5), (8.5, 7.5)]
@@ -117,7 +192,9 @@ CENTER_RELEASE_SECONDS = 2.0
 DEATH_ANIMATION_SECONDS = 0.8  # 마지막 탈락 연출이 보인 뒤 결과로 넘어간다.
 _last_map = None
 TICK = 0.1
-TIME_LIMIT = 60.0
+TIME_LIMIT = 90.0
+FINAL_CHASE_SECONDS = 30.0
+FINAL_CHASE_MULTIPLIER = 1.15
 PLAYER_SPEED = 2.6
 MONSTER_SPEED = 1.55
 INPUT_TIMEOUT = 0.45
@@ -128,12 +205,10 @@ FLANK_DISTANCE = 1.3
 INTERCEPT_START_SECONDS = 5.0  # 초반 적응 시간이 지난 뒤 예측 추격을 시작한다.
 INTERCEPT_LOOKAHEAD_SECONDS = 0.8
 MIN_PLAYER_SPAWN_DISTANCE = 4.0  # 전체 좀비의 기존 최소 안전 거리
-ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE = 8.0  # 참가자별 배정 좀비는 시야 밖에서 시작
-MIN_ZOMBIE_SPAWN_DISTANCE = 1.5
-BLACKOUT_ENABLED = False  # 추격 테스트 중 임시 해제. True로 바꾸면 기존 정전이 돌아온다.
-BLACKOUT_START = 5.0
-BLACKOUT_WARNING = 2.0
-JUMP_LIMIT = 3
+ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE = 6.0  # 참가자별 배정 좀비는 시야 밖에서 시작
+MIN_ZOMBIE_SPAWN_DISTANCE = 2.0
+JUMP_LIMIT = 5
+JUMP_RECHARGE_SECONDS = 15.0
 JUMP_DURATION = 0.45  # 점프 중만 좀비 충돌을 피하고 착지 즉시 다시 판정한다.
 JUMP_WALL_DISTANCE = 0.65  # 캐릭터 중심에서 벽까지 허용되는 최대 거리
 
@@ -147,6 +222,10 @@ def expand_map(rows, player_count):
     extra = max(0, player_count - 2) * 2
     if not extra:
         return rows
+    if rows == GARDEN_MAP and player_count == 4:
+        return GARDEN_FOUR_MAP
+    if rows == PARK_MAP:
+        return CITY_LARGE_MAPS[player_count]
     if rows == LUMBERYARD_MAP:
         return WAREHOUSE_LARGE_MAPS[player_count]
     center_x, center_y = len(rows[0]) // 2, len(rows) // 2
@@ -164,22 +243,16 @@ def center_zombie_positions(rows):
     return [(x - 1, y), (x, y), (x + 1, y)]
 
 
-def blackout_phase(elapsed):
-    if not BLACKOUT_ENABLED:
-        return 'normal'
-    # 5초 동안은 길을 보여주고, 그 뒤 경기 종료까지 계속 손전등 시야를 사용한다.
-    if elapsed >= BLACKOUT_START:
-        return 'blackout'
-    if 0 < BLACKOUT_START - elapsed <= BLACKOUT_WARNING:
-        return 'warning'
-    return 'normal'
-
-
 def zombie_count(player_count):
     # 한 판 시작 시 연결된 참가자 기준. 중간에 탈락해도 수는 바뀌지 않는다.
     if not 1 <= player_count <= 4:
         raise ValueError('참가자 수는 1명에서 4명이어야 합니다.')
     return 5 + 2 * (player_count - 1)
+
+
+def initial_owner_indices(count):
+    owners = [i for i in range(count) for _ in range(2)]
+    return owners + list(range(min(count, 3))) + [None] * max(0, 3-count)
 
 
 def spawn_layout(rows, count):
@@ -215,17 +288,31 @@ def spawn_layout(rows, count):
             distances.append(d)
         safe = [p for p in sorted(floor) if all(math.dist(p,q) >= MIN_PLAYER_SPAWN_DISTANCE and d.get(p,-1) >= 5 for q,d in zip(players,distances))]
         chosen = []
-        for i in range(2*count+3):
-            assigned = i < 2*count
+        owners = initial_owner_indices(count)
+        for owner in owners:
             available = [p for p in safe if all(math.dist(p,q) >= MIN_ZOMBIE_SPAWN_DISTANCE for q in chosen)]
-            if assigned:
-                available = [p for p in available if all(math.dist(p,q) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for q in players)]
+            if owner is not None:
+                available = [p for p in available if math.dist(p, players[owner]) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE]
             if not available:
                 break
-            chosen.append(random.choice(available))
+            random.shuffle(available)
+            def score(p):
+                spread = min((math.dist(p,q) for q in chosen), default=5)
+                if owner is None:
+                    return spread
+                origin = players[owner]
+                angle = math.atan2(p[1]-origin[1], p[0]-origin[0])
+                angles = [math.atan2(q[1]-origin[1], q[0]-origin[0]) for q,o in zip(chosen,owners) if o == owner]
+                diversity = min((1-math.cos(angle-a) for a in angles), default=1)
+                return min(spread, 5) + 2*diversity - .45*abs(distances[owner][p]-9)
+            chosen.append(max(available, key=score))
         if len(chosen) == 2*count+3:
             return [[x+.5,y+.5] for x,y in players], [[x+.5,y+.5] for x,y in chosen]
     raise ValueError('안전한 시작 위치를 찾지 못했습니다.')
+
+
+def monster_speed(elapsed):
+    return MONSTER_SPEED * (FINAL_CHASE_MULTIPLIER if elapsed >= TIME_LIMIT - FINAL_CHASE_SECONDS else 1.0)
 
 
 def jump_destination(pos, facing, rows):
@@ -282,6 +369,7 @@ class MonsterEscape:
         _last_map = self.map_name
         self.names = list(names)
         self.virtual_players = set()
+        self.virtual_invincible = False
         self.bot_next = {}
         self.bot_recent = {}
         zombie_count(len(self.names))  # 크기 조정 전 참가 인원을 검증한다.
@@ -293,13 +381,14 @@ class MonsterEscape:
         self.inputs = {name: (0.0, 0.0, 0.0) for name in names}
         self.facing = {name: (0.0, -1.0) for name in names}
         self.jumps_left = {name: JUMP_LIMIT for name in self.names}
+        self.jump_recharge = {name: 0.0 for name in self.names}
         self.jumping = {}  # 출발점·착지점과 진행 시간은 서버에서 관리한다.
         # 추가 좀비 중 소수만 예측한다. 1~2명일 때 1마리, 3~4명일 때 2마리.
         first_center = len(self.monsters) - len(CENTER_STARTS)
         interceptor_count = 1 + (len(self.names) >= 3)
         self.interceptors = set(range(first_center, first_center + interceptor_count))
         self.paths = [[] for _ in self.monsters]
-        self.initial_targets = [name for name in self.names for _ in range(2)] + [None] * 3
+        self.initial_targets = [self.names[i] if i is not None else None for i in initial_owner_indices(len(self.names))]
         self.targets = list(self.initial_targets)
         self.death_time = {}
         self.broadcast = broadcast
@@ -465,7 +554,20 @@ class MonsterEscape:
             else:
                 self.inputs[name] = (0,0,now)
 
+    def update_jump_recharge(self, dt):
+        for name in self.alive & self.connected:
+            if self.jumps_left[name] >= JUMP_LIMIT:
+                self.jump_recharge[name] = 0.0
+                continue
+            self.jump_recharge[name] += dt
+            while self.jump_recharge[name] >= JUMP_RECHARGE_SECONDS and self.jumps_left[name] < JUMP_LIMIT:
+                self.jump_recharge[name] -= JUMP_RECHARGE_SECONDS
+                self.jumps_left[name] += 1
+            if self.jumps_left[name] == JUMP_LIMIT:
+                self.jump_recharge[name] = 0.0
+
     def step(self, dt, now, tick):
+        self.update_jump_recharge(dt)
         self.update_virtual_players(now)
         for name in list(self.alive):
             jump = self.jumping.get(name)
@@ -502,7 +604,7 @@ class MonsterEscape:
                 dx, dy = target[0] - monster[0], target[1] - monster[1]
                 distance = math.hypot(dx, dy)
                 if distance:
-                    amount = min(distance, MONSTER_SPEED * dt)
+                    amount = min(distance, monster_speed(self.elapsed) * dt)
                     vx, vy = dx / distance, dy / distance
                     # 좁은 곳에서는 겹칠 수 있지만, 가까이 붙으면 옆으로 분산한다.
                     for j, other in enumerate(self.monsters):
@@ -528,6 +630,8 @@ class MonsterEscape:
                 if math.dist(self.monsters[i], target) < 0.06:
                     self.paths[i].pop(0)
         for name in list(self.alive):
+            if self.virtual_invincible and name in self.virtual_players:
+                continue
             if name not in self.jumping and any(math.dist(self.positions[name], m) < 0.55 for m in self.monsters):
                 self.alive.remove(name)
                 self.death_time[name] = self.elapsed
@@ -540,10 +644,12 @@ class MonsterEscape:
             shown = [a + (b - a) * progress for a, b in zip(jump['start'], jump['target'])] if jump else pos
             players[name] = {'x': shown[0], 'y': shown[1], 'alive': name in self.alive,
                              'connected': name in self.connected, 'facing': self.facing[name],
-                             'jumps_left': self.jumps_left[name], 'jump': {'progress': progress} if jump else None}
+                             'jumps_left': self.jumps_left[name],
+                             'jump_recharge_in': round(max(0, JUMP_RECHARGE_SECONDS - self.jump_recharge[name]), 2) if name in self.alive and name in self.connected and self.jumps_left[name] < JUMP_LIMIT else None,
+                             'jump': {'progress': progress} if jump else None}
         return {'map': self.map, 'map_name': self.map_name, 'remaining': max(0, TIME_LIMIT - self.elapsed),
                 'reinforcements_in': max(0, CENTER_RELEASE_SECONDS - self.elapsed),
-                'lighting': blackout_phase(self.elapsed), 'players': players, 'monsters': self.monsters}
+                'players': players, 'monsters': self.monsters}
 
     def result(self):
         names = [n for n in self.names if n in self.connected]

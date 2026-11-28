@@ -1,5 +1,5 @@
 // 표시할 점프 횟수. 서버 game.py의 JUMP_LIMIT과 같게 유지한다.
-const MONSTER_ESCAPE_JUMP_LIMIT = 3;
+const MONSTER_ESCAPE_JUMP_LIMIT = 5;
 // PC는 전체 맵, 참가자는 내 캐릭터 주변 7칸만 보여준다.
 function monsterEscapeCamera(host, rows, player, canvasWidth) {
   const view = host ? rows[0].length : 7;
@@ -91,32 +91,48 @@ function monsterEscapeWarehouseTile(ctx, cell, x, y, size, rows) {
   const rect = (color, a, b, w, h) => {
     ctx.fillStyle = color; ctx.fillRect(px + a * size, py + b * size, w * size, h * size);
   };
+  const noise = (n) => ((Math.imul(x + 31, 73856093) ^ Math.imul(y + 17, 19349663) ^ Math.imul(n + 1, 83492791)) >>> 0) % 997 / 997;
+  const line = (color, width, points) => {
+    ctx.strokeStyle = color; ctx.lineWidth = size * width;
+    ctx.beginPath(); points.forEach(([a,b], i) => i ? ctx.lineTo(px+a*size,py+b*size) : ctx.moveTo(px+a*size,py+b*size)); ctx.stroke();
+  };
   if (cell !== '#') {
-    rect((x * 7 + y * 11) % 3 === 0 ? '#92938b' : '#858780', 0, 0, 1, 1);
-    rect('#74776f', 0, 0, 1, .025);
-    if ((x + y * 3) % 7 === 0) {
-      ctx.strokeStyle = '#62665f'; ctx.lineWidth = size * .025;
-      ctx.beginPath(); ctx.moveTo(px + size * .15, py + size * .2);
-      ctx.lineTo(px + size * .42, py + size * .48);
-      ctx.lineTo(px + size * .32, py + size * .65); ctx.stroke();
+    rect(['#92938b','#90918a','#94958e'][Math.floor(noise(0)*3)], 0,0,1,1);
+    if (x % 3 === 0) rect('#83857e',0,0,.012,1);
+    if (y % 3 === 0) rect('#83857e',0,0,1,.012);
+    for (let i=0;i<4;i++) rect('rgba(45,49,45,.09)',.08+noise(i+1)*.8,.08+noise(i+5)*.8,.025,.018);
+    if (noise(10)<.18) line('#71756d',.014,[[.12,.12],[.34,.31],[.29,.48],[.63,.74]]);
+    if (noise(11)<.10) {
+      ctx.fillStyle='rgba(48,53,48,.13)'; ctx.beginPath(); ctx.ellipse(px+size*.53,py+size*.52,size*.27,size*.13,-.35,0,Math.PI*2); ctx.fill();
     }
-    if (y === 4 || y === rows.length - 2) rect('#b7a05b', .1, .83, .65, .045);
+    if (y === 4 || y === rows.length - 2) rect('#bca35b',.06,.83,.78,.035);
     return;
   }
   const edge = x === 0 || y === 0 || x === rows[0].length - 1 || y === rows.length - 1;
   const open = (a,b) => rows[b]?.[a] === '.';
   const thin = !edge && ((open(x-1,y) && open(x+1,y)) || (open(x,y-1) && open(x,y+1)));
-  rect('#303b40', 0, 0, 1, 1);
+  rect('#303b40',0,0,1,1);
   if (edge) {
-    rect('#50575a', .04,.04,.92,.75); rect('#72787a', .04,.04,.92,.08);
+    rect('#51595b',.025,.025,.95,.85); rect('#777e7e',.025,.025,.95,.07);
+    rect('#343c3e',.025,.85,.95,.12);
   } else if (thin) {
-    rect('#795a3c', .04,.04,.92,.92); rect('#a8875c', .10,.10,.80,.80);
-    rect('#614b36', .15,.15,.10,.70); rect('#614b36', .75,.15,.10,.70);
-    rect('#c1a273', .25,.45,.50,.08);
+    rect('#62452e',.035,.035,.93,.93); rect('#b18b5c',.09,.09,.82,.76);
+    for(let i=1;i<4;i++) rect('#886641',.10,.09+i*.19,.80,.025);
+    rect('#d0ad77',.12,.10,.09,.73); rect('#d0ad77',.79,.10,.09,.73);
+    line('#795635',.065,[[.22,.76],[.78,.17]]);
+    rect('#4e3929',.09,.85,.82,.08);
+    rect('#e4bd68',.34,.87,.32,.055);
   } else {
-    rect('#485c60', .04,.04,.92,.92);
-    for (let i=0;i<5;i++) rect('#657b7d', .10+i*.17,.10,.055,.76);
-    rect('#956047', .12,.72,.26,.12); rect('#29383b', .04,.86,.92,.10);
+    const colors = ['#526c70','#6d5148','#59645a'];
+    const base = colors[Math.floor(noise(20)*colors.length)];
+    rect(base,.035,.035,.93,.93);
+    for(let i=0;i<6;i++) {
+      rect('rgba(0,0,0,.19)',.10+i*.14,.09,.035,.76);
+      rect('rgba(255,255,255,.14)',.135+i*.14,.09,.025,.76);
+    }
+    rect('#a0a39a',.06,.05,.88,.045); rect('#29383b',.04,.86,.92,.10);
+    rect('#926047',.12+noise(21)*.4,.68,.24,.075);
+    rect('#c0c3b6',.68,.17,.17,.075);
   }
 }
 
@@ -145,19 +161,27 @@ function monsterEscapeFinale(data, role, viewer) {
   if (data.reason === 'time_limit') return {tone: 'victory', tag: 'TIME SURVIVED', title: '생존 성공', detail: mine ? '제한 시간까지 살아남았어요!' : '제한 시간까지 살아남은 플레이어', names: winners[0], points: '+1,000 POINTS'};
   return {tone: 'victory', tag: 'LAST SURVIVOR', title: '최후의 생존자', detail: mine ? '당신이 마지막까지 살아남았어요!' : '마지막까지 살아남은 플레이어', names: winners[0], points: '+1,000 POINTS'};
 }
-if (typeof module !== 'undefined') module.exports = { monsterEscapeCamera, monsterEscapeInterpolate, monsterEscapeDeathProgress, monsterEscapeFinale, monsterEscapeCanSee, monsterEscapeVisibility, monsterEscapeVisibleWalls };
+function monsterEscapeSpectator(players, viewer, current, step = 0) {
+  if (!players[viewer] || players[viewer].alive) return null;
+  const names = Object.keys(players).filter(n => players[n].alive && players[n].connected);
+  if (!names.length) return null;
+  const index = names.indexOf(current);
+  return names[index < 0 ? 0 : (index + step + names.length) % names.length];
+}
+if (typeof module !== 'undefined') module.exports = { monsterEscapeSpectator, monsterEscapeCamera, monsterEscapeInterpolate, monsterEscapeDeathProgress, monsterEscapeFinale, monsterEscapeCanSee, monsterEscapeVisibility, monsterEscapeVisibleWalls };
 
 function setupMonsterEscape(ws, role, getName) {
   const host = role === 'host';
   const root = document.createElement('section');
-  root.className = 'me-screen'; root.hidden = true;
+  root.className = host ? 'me-screen me-host' : 'me-screen me-player'; root.hidden = true;
   root.innerHTML = '<div class="me-panel"><header><div class="me-heading"><span class="me-kicker">SURVIVAL · 탈출 작전</span><h1>🧟 좀비 피하기</h1></div><strong data-time>준비 중</strong></header>' +
-    '<p data-status>좀비를 피해 살아남으세요!</p><p data-map-name></p><div class="me-board"><canvas width="600" height="600" aria-label="좀비와 참가자의 위치가 표시된 경기장"></canvas></div>' +
+    '<div class="me-audio"><button type="button" data-music>음악</button><button type="button" data-effects>효과음</button></div><p data-status>좀비를 피해 살아남으세요!</p><div class="me-map-strip"><strong data-map-name></strong><span data-survivors></span></div><div class="me-board"><canvas width="600" height="600" aria-label="좀비와 참가자의 위치가 표시된 경기장"></canvas></div>' +
     '<div class="me-control"><p>벽을 바라보고 벽 넘기 버튼을 눌러요</p><div class="me-control-row">' +
       '<div class="me-jump-area"><button type="button" class="me-jump" data-jump disabled aria-label="벽 넘기">' +
         '<span aria-hidden="true">↗</span><strong>벽 넘기</strong><small data-jump-count>' + MONSTER_ESCAPE_JUMP_LIMIT + ' / ' + MONSTER_ESCAPE_JUMP_LIMIT + '</small></button>' +
-        '<small class="me-jump-hint" data-jump-hint aria-live="polite">얇은 벽 앞에서 사용</small></div>' +
-      '<div class="me-stick" role="application" aria-label="이동 조이스틱"><div class="me-knob"></div></div></div></div></div>' +
+        '<div class="me-charge" aria-hidden="true"><i></i></div><small class="me-jump-hint" data-jump-hint aria-live="polite">얇은 벽 앞에서 사용</small></div>' +
+      '<div class="me-stick" role="application" aria-label="이동 조이스틱"><div class="me-knob"></div></div></div></div>' +
+    '<div class="me-spectator" hidden><p>관전 모드</p><div class="me-spectator-row"><button type="button" data-watch-prev aria-label="이전 생존자">‹</button><div><strong data-watch-name></strong><p data-watch-info></p></div><button type="button" data-watch-next aria-label="다음 생존자">›</button></div></div></div>' +
     '<div class="me-finale" data-finale hidden role="status" aria-live="polite">' +
       '<div class="me-finale-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>' +
       '<div class="me-finale-card"><div class="me-finale-mark" aria-hidden="true"><span>✦</span></div>' +
@@ -168,8 +192,6 @@ function setupMonsterEscape(ws, role, getName) {
   document.body.appendChild(root);
   const canvas = root.querySelector('canvas'), ctx = canvas.getContext('2d');
   // 별도 마스크에 어둠을 그려서, 원본 경기장에는 영향을 주지 않는다.
-  const darkness = document.createElement('canvas'); darkness.width = canvas.width; darkness.height = canvas.height;
-  const darknessCtx = darkness.getContext('2d');
   const sightMask = document.createElement('canvas'); sightMask.width = canvas.width; sightMask.height = canvas.height;
   const sightCtx = sightMask.getContext('2d');
   const entry = document.querySelector('script[data-game-ui="monster_escape"]');
@@ -222,6 +244,82 @@ function setupMonsterEscape(ws, role, getName) {
   const stick = root.querySelector('.me-stick'), knob = root.querySelector('.me-knob');
   const jumpButton = root.querySelector('[data-jump]'), jumpCount = root.querySelector('[data-jump-count]'), jumpHint = root.querySelector('[data-jump-hint]');
   const control = root.querySelector('.me-control'), status = root.querySelector('[data-status]'), clock = root.querySelector('[data-time]'), mapName = root.querySelector('[data-map-name]');
+  const tracks = {
+    normal: {file: 'void-estate.ogg', group: 'music', loop: true, html5: true, volume: .26},
+    heart: {file: 'heart.mp3', group: 'effects', loop: true, volume: .35},
+    start: {file: 'start.mp3', group: 'effects', volume: .35},
+    rush: {file: 'rush.mp3', group: 'effects', volume: .55},
+    hit: {file: 'hit.mp3', group: 'effects', volume: .8},
+    win: {file: 'win.mp3', group: 'effects', volume: .55},
+    loss: {file: 'loss.mp3', group: 'effects', volume: .40},
+  };
+  for (let i = 1; i <= 6; i++) {
+    tracks['groan'+i] = {file: `groan${i}.mp3`, group: 'effects'};
+    tracks['foot'+i] = {file: `foot${i}.mp3`, group: 'effects'};
+  }
+  const audio = !host && typeof PartyAudio === 'function' ? PartyAudio('/static/audio/zombie/', tracks) : null;
+  let audioPhase = '', audioPlayer = null, nextGroan = 0, nextFoot = 0, duckUntil = 0;
+  let audioEnded = false;
+  function resetAudio() { audio?.stopAll(); audioEnded = false; audioPhase = ''; audioPlayer = null; nextGroan = nextFoot = duckUntil = 0; }
+  function randomSound(prefix, volume) { audio.play(prefix + (1 + Math.floor(Math.random()*6)), volume); }
+  function syncAudio(data) {
+    if (!audio || !data?.players) return;
+    if (audioEnded) return;
+    const now = performance.now(), me = data.players[getName()];
+    if (me && audioPlayer?.alive && !me.alive) { audio.play('hit'); duckUntil = now + 1400; }
+    if (data.ending) {
+      audioEnded = true;
+      audio.stop('heart');
+      for (let i = 1; i <= 6; i++) { audio.stop('groan'+i); audio.stop('foot'+i); }
+      audio.fadeOut('normal', 1000);
+      if (me?.alive) audio.play('win');
+      else if (data.ending === 'all_eliminated' && !(me && audioPlayer?.alive)) audio.play('loss');
+      return;
+    }
+    const phase = data.remaining <= 30 ? 'rush' : 'normal';
+    if (audioPhase !== phase) { audio.play(audioPhase ? 'rush' : 'start'); audioPhase = phase; duckUntil = now + 900; }
+    const listener = me?.alive ? me : data.players[watched];
+    const distance = listener ? Math.min(Infinity, ...data.monsters.filter(m => monsterEscapeCanSee(data.map,listener,{x:m[0],y:m[1]})).map(m => Math.hypot(m[0]-listener.x,m[1]-listener.y))) : Infinity;
+    audio.play('normal', now < duckUntil ? .10 : distance < 2 ? .15 : .26);
+    if (me?.alive && distance < 6) {
+      audio.play('heart', Math.min(.48, .15 + (6-distance)*.055));
+      audio.rate('heart', Math.min(1.85, 1 + (6-distance)*.15));
+    } else audio.stop('heart');
+    if (distance < 6 && now >= nextGroan) {
+      randomSound('groan', Math.min(.28, .055 + (6-distance)*.038));
+      nextGroan = now + 3800 + Math.random()*2400;
+    }
+    if (me?.alive && audioPlayer && now >= nextFoot && !me.jump && (audioPlayer.jump || Math.hypot(me.x-audioPlayer.x,me.y-audioPlayer.y) > .015)) {
+      randomSound('foot', audioPlayer.jump ? .48 : .22); nextFoot = now + 350;
+    }
+    audioPlayer = me ? {alive: me.alive, x: me.x, y: me.y, jump: !!me.jump} : null;
+  }
+  root.querySelector('.me-audio').hidden = host;
+  for (const [group, selector, label] of [['music','[data-music]','음악'],['effects','[data-effects]','효과음']]) {
+    const button = root.querySelector(selector);
+    function refresh() { const muted = audio?.isMuted(group); button.textContent = label + (muted ? ' 끔' : ' 켬'); button.setAttribute('aria-pressed', String(!muted)); }
+    refresh();
+    button.addEventListener('click', () => { if (!audio) return; audio.enable(); audio.setMuted(group, !audio.isMuted(group)); refresh(); if (snapshot && playing) syncAudio(snapshot); });
+  }
+  document.addEventListener('pointerdown', () => { audio?.enable(); if (!root.hidden && snapshot && playing) syncAudio(snapshot); }, {passive: true});
+  const spectator = root.querySelector('.me-spectator');
+  const watchPrev = root.querySelector('[data-watch-prev]'), watchNext = root.querySelector('[data-watch-next]');
+  let watched = null;
+  function updateSpectator(data, step = 0) {
+    const me = data.players[getName()];
+    const eliminated = !host && !!me && !me.alive;
+    watched = eliminated ? monsterEscapeSpectator(data.players, getName(), watched, step) : null;
+    control.hidden = host || eliminated;
+    spectator.hidden = !eliminated || !!data.ending || !watched;
+    const count = Object.values(data.players).filter(p => p.alive && p.connected).length;
+    watchPrev.disabled = watchNext.disabled = count < 2;
+    if (watched) {
+      spectator.querySelector('[data-watch-name]').textContent = watched + ' 관전 중';
+      spectator.querySelector('[data-watch-info]').textContent = `생존자 ${count}명 · 남은 점프 ${data.players[watched].jumps_left ?? 0}회${data.players[watched].jump_recharge_in != null ? ` · 충전 ${Math.ceil(data.players[watched].jump_recharge_in)}초` : ''}`;
+    }
+  }
+  watchPrev.addEventListener('click', () => { if (snapshot && !spectator.hidden) updateSpectator(snapshot, -1); });
+  watchNext.addEventListener('click', () => { if (snapshot && !spectator.hidden) updateSpectator(snapshot, 1); });
   const finale = root.querySelector('[data-finale]');
   function showFinale(data) {
     const view = monsterEscapeFinale(data, role, getName());
@@ -273,10 +371,11 @@ function setupMonsterEscape(ws, role, getName) {
   jumpButton.addEventListener('click', e => { if (e.detail === 0) requestJump(); });  // 키보드·보조기기
   window.addEventListener('blur', reset);
   document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
-  ws.addEventListener('close', () => { reset(); playing = false; finale.hidden = true; stopRendering(); if (!root.hidden) status.textContent = '서버 연결이 끊겼어요.'; });
+  ws.addEventListener('close', () => { resetAudio(); reset(); playing = false; finale.hidden = true; stopRendering(); if (!root.hidden) status.textContent = '서버 연결이 끊겼어요.'; });
   function draw(snapshot) {
     if (!snapshot || !ctx) return;
-    const rows = snapshot.map, mine = snapshot.players[getName()];
+    const viewName = watched ?? getName();
+    const rows = snapshot.map, mine = snapshot.players[viewName];
     // 준비 카운트다운에 아직 내 위치가 없는 동안은 맵을 미리 노출하지 않는다.
     if (!host && !mine) { ctx.fillStyle = '#101a1b'; ctx.fillRect(0, 0, canvas.width, canvas.height); return; }
     const {size, offsetX, offsetY} = monsterEscapeCamera(host, rows, mine, canvas.width);
@@ -290,30 +389,98 @@ function setupMonsterEscape(ws, role, getName) {
         monsterEscapeWarehouseTile(ctx, cell, x, y, size, rows);
         return;
       }
+      if (snapshot.map_name === '폐허가 된 도심') {
+        const wall = (a, b) => rows[b]?.[a] === '#';
+        const floor = (a, b) => rows[b]?.[a] === '.';
+        const horizontalJump = floor(x-1,y) && floor(x+1,y);
+        const verticalJump = floor(x,y-1) && floor(x,y+1);
+        const noise = n => ((Math.imul(x+31,73856093)^Math.imul(y+17,19349663)^Math.imul(n+1,83492791))>>>0)%997/997;
+        const rect = (color,a,b,w,h) => { ctx.fillStyle=color; ctx.fillRect(px+a*size,py+b*size,w*size,h*size); };
+        rect(['#656a70','#686d72','#62676c'][Math.floor(noise(0)*3)],0,0,1,1);
+        if (cell !== '#') {
+          if (noise(1)<.28) {
+            ctx.strokeStyle='#50555a'; ctx.lineWidth=size*.018;
+            ctx.beginPath(); ctx.moveTo(px+size*.12,py+size*.06); ctx.lineTo(px+size*.38,py+size*.42); ctx.lineTo(px+size*.29,py+size*.68); ctx.stroke();
+          }
+          for(let i=0;i<3;i++) rect('#85898a',.08+noise(i+2)*.84,.08+noise(i+5)*.84,.025,.018);
+          if (wall(x-1,y)) rect('#85817a',0,0,.09,1);
+          if (wall(x+1,y)) rect('#85817a',.91,0,.09,1);
+        }
+        if (cell === '#') {
+          const attachedToBuilding = [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) => {
+            const a = x+dx, b = y+dy;
+            return wall(a,b) && !(floor(a-1,b) && floor(a+1,b)) && !(floor(a,b-1) && floor(a,b+1));
+          });
+          if ((horizontalJump || verticalJump) && attachedToBuilding) {
+            // 건물에 붙은 낮은 잔해: 실제 점프 가능한 타일만 밝게 표시한다.
+            ctx.fillStyle = '#a99579'; ctx.fillRect(px,py,size,size);
+            ctx.fillStyle = '#c4b49a'; ctx.fillRect(px+size*.08,py+size*.08,size*.84,size*.84);
+            ctx.strokeStyle = '#665e53'; ctx.lineWidth = size*.045;
+            ctx.beginPath(); ctx.moveTo(px+size*.15,py+size*.25);
+            ctx.lineTo(px+size*.48,py+size*.48); ctx.lineTo(px+size*.32,py+size*.82);
+            ctx.moveTo(px+size*.48,py+size*.48); ctx.lineTo(px+size*.85,py+size*.35); ctx.stroke();
+          } else if (horizontalJump || verticalJump) {
+            // 실제 한 칸 점프 가능 방향과 차량의 방향을 일치시킨다.
+            ctx.save(); ctx.translate(px+size/2, py+size/2);
+            if (horizontalJump && !verticalJump) ctx.rotate(Math.PI/2);
+            ctx.fillStyle = '#34383c'; ctx.fillRect(-size/2,-size/2,size,size);
+            ctx.fillStyle = '#20262b';
+            for (const a of [-.32,.22]) for (const b of [-.39,.28]) ctx.fillRect(size*a,size*b,size*.16,size*.11);
+            ctx.fillStyle = ['#ad9167','#9b6656','#819c9c'][Math.floor(noise(2)*3)]; ctx.fillRect(-size*.46,-size*.34,size*.92,size*.68);
+            ctx.fillStyle = '#b9b6a1'; ctx.fillRect(-size*.06,-size*.25,size*.17,size*.50);
+            ctx.fillStyle = '#414f57'; ctx.fillRect(-size*.24,-size*.28,size*.18,size*.56);
+            ctx.fillRect(size*.12,-size*.28,size*.16,size*.56);
+            ctx.fillStyle = '#d4c8a2'; ctx.fillRect(-size*.45,-size*.25,size*.07,size*.14);
+            ctx.fillRect(-size*.45,size*.11,size*.07,size*.14);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = '#45474a'; ctx.fillRect(px,py,size,size);
+            rect('#57595b',.08,.08,.84,.84);
+            rect('#77797a',.08,.08,.84,.045); rect('#77797a',.08,.08,.045,.70);
+            if (noise(3)<.35) { rect('#3c4145',.30,.28,.38,.38); rect('#73787a',.34,.32,.30,.08); }
+            else if (noise(4)<.4) { rect('#45494d',.18,.42,.64,.045); rect('#45494d',.45,.18,.045,.64); }
+            ctx.fillStyle = '#303236';
+            if (!wall(x,y+1)) ctx.fillRect(px,py+size*.78,size,size*.22);
+            if (!wall(x+1,y)) ctx.fillRect(px+size*.86,py,size*.14,size);
+          }
+        } else if ((x === Math.floor(rows[0].length/2) || y === Math.floor(rows.length/2)) && (x+y)%2 === 0) {
+          ctx.fillStyle = '#c7bd91';
+          if (x === Math.floor(rows[0].length/2)) ctx.fillRect(px+size*.47,py+size*.18,size*.06,size*.64);
+          if (y === Math.floor(rows.length/2)) ctx.fillRect(px+size*.18,py+size*.47,size*.64,size*.06);
+        }
+        return;
+      }
+      // 정원: 낮은 울타리와 높은 생울타리를 실제 점프 가능 방향으로 구분한다.
+      const rect = (color,a,b,w,h) => { ctx.fillStyle=color; ctx.fillRect(px+a*size,py+b*size,w*size,h*size); };
+      const noise = n => ((Math.imul(x+31,73856093)^Math.imul(y+17,19349663)^Math.imul(n+1,83492791))>>>0)%997/997;
+      const floor = (a,b) => rows[b]?.[a] === '.';
+      const edge = x===0 || y===0 || x===rows[0].length-1 || y===rows.length-1;
+      const low = !edge && ((floor(x-1,y)&&floor(x+1,y)) || (floor(x,y-1)&&floor(x,y+1)));
       if (cell === '#') {
-        // 판정은 기존 격자 그대로. 나뭇잎이 풍성한 공원 생울타리만 시각적으로 추가한다.
-        ctx.fillStyle = '#263a2b'; ctx.fillRect(px, py, size, size);
-        ctx.fillStyle = '#172e23'; ctx.fillRect(px, py + size * .78, size, size * .22);
-        const leaves = [[.18,.29,.21],[.49,.22,.25],[.82,.3,.22],[.27,.55,.23],[.65,.56,.27],[.9,.57,.18]];
-        leaves.forEach(([a,b,r], i) => {
-          ctx.fillStyle = i % 2 ? '#355e3d' : '#2e5238';
-          ctx.beginPath(); ctx.arc(px + size * a, py + size * b, size * r, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = 'rgba(143,180,116,.16)';
-          ctx.beginPath(); ctx.ellipse(px + size * (a - .045), py + size * (b - .065), size * r * .48, size * r * .23, -.4, 0, Math.PI * 2); ctx.fill();
-        });
-        if ((x * 3 + y * 7) % 5 === 0) {
-          ctx.fillStyle = '#c7977a'; ctx.beginPath(); ctx.arc(px + size * .58, py + size * .47, size * .035, 0, Math.PI * 2); ctx.fill();
+        rect('#263a2b',0,0,1,1);
+        if (low) {
+          rect('#8c805f',.05,.05,.90,.90);
+          rect('#c1af83',.09,.09,.82,.72);
+          rect('#77694e',.09,.81,.82,.10);
+          for(let i=0;i<3;i++) rect('#a39470',.12+i*.27,.12,.025,.67);
+          rect('#d9c69a',.09,.09,.82,.06);
+        } else {
+          rect('#172e23',0,.78,1,.22);
+          for(let i=0;i<7;i++) {
+            const a=.16+(i%3)*.31, b=.18+Math.floor(i/3)*.27;
+            ctx.fillStyle=['#355b39','#416947','#2e5034'][Math.floor(noise(i)*3)];
+            ctx.beginPath(); ctx.ellipse(px+size*a,py+size*b,size*.15,size*.16,0,0,Math.PI*2); ctx.fill();
+            rect('rgba(171,194,128,.20)',a-.06,b-.07,.07,.035);
+          }
         }
       } else {
-        // 이어진 흙길과 자갈: 바닥은 밝게, 벽은 어둡게 유지해 이동 가능 영역을 구분한다.
-        ctx.fillStyle = (x * 7 + y * 11) % 3 === 0 ? '#777d69' : '#737b67'; ctx.fillRect(px, py, size, size);
-        ctx.fillStyle = 'rgba(205,207,169,.10)';
-        ctx.beginPath(); ctx.ellipse(px + size * .35, py + size * .4, size * .27, size * .15, -.3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#9b9b7c';
-        [[.17,.22],[.68,.72],[.84,.25]].forEach(([a,b], i) => {
-          if ((x * 5 + y * 3 + i) % 3 !== 0) return;
-          ctx.beginPath(); ctx.ellipse(px + size * a, py + size * b, size * .035, size * .021, -.3, 0, Math.PI * 2); ctx.fill();
-        });
+        rect(['#858a70','#888c73','#82876d'][Math.floor(noise(0)*3)],0,0,1,1);
+        rect('#92947d',.035,.035,.93,.93);
+        if(noise(1)<.35) {
+          ctx.strokeStyle='#727761'; ctx.lineWidth=size*.015;
+          ctx.beginPath(); ctx.moveTo(px+size*.12,py+size*.08); ctx.lineTo(px+size*.38,py+size*.39); ctx.lineTo(px+size*.29,py+size*.65); ctx.stroke();
+        }
+        for(let i=0;i<3;i++) rect('#737d50',.08+noise(i+2)*.80,.08+noise(i+5)*.80,.035,.018);
       }
     }));
     snapshot.monsters.forEach((m, i) => {
@@ -329,7 +496,7 @@ function setupMonsterEscape(ws, role, getName) {
       ctx.restore();
     });
     Object.entries(snapshot.players).forEach(([name, p], index) => {
-      if (!host && mine && name !== getName() && !monsterEscapeCanSee(rows, mine, p)) return;
+      if (!host && mine && name !== viewName && !monsterEscapeCanSee(rows, mine, p)) return;
       ctx.save(); ctx.translate(p.x * size, p.y * size);
       ctx.fillStyle = 'rgba(20,30,25,.24)'; ctx.beginPath(); ctx.ellipse(0, size * .25, size * .29, size * .1, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = ['#55abf6', '#f17fa6', '#ffcd57', '#56dbac'][index % 4];
@@ -358,37 +525,17 @@ function setupMonsterEscape(ws, role, getName) {
       sightCtx.globalCompositeOperation = 'source-over';
       ctx.drawImage(sightMask, 0, 0);
     }
-    if (!host && snapshot.lighting === 'blackout' && mine && darknessCtx) {
-      const cx = offsetX + mine.x * size, cy = offsetY + mine.y * size;
-      const facing = mine.facing || [0, -1], angle = Math.atan2(facing[1], facing[0]);
-      darknessCtx.globalCompositeOperation = 'source-over';
-      darknessCtx.clearRect(0, 0, darkness.width, darkness.height);
-      darknessCtx.fillStyle = 'rgba(3, 9, 13, .97)'; darknessCtx.fillRect(0, 0, darkness.width, darkness.height);
-      darknessCtx.globalCompositeOperation = 'destination-out';
-      // 여러 겹의 반투명 원뿔과 그라데이션으로 손전등 경계를 부드럽게 만든다.
-      const glow = darknessCtx.createRadialGradient(cx, cy, 0, cx, cy, size * 3.2);
-      glow.addColorStop(0, 'rgba(255,255,255,1)'); glow.addColorStop(.45, 'rgba(255,255,255,.9)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
-      for (let i = 0; i < 5; i++) {
-        const half = Math.PI / 6 + .10 - i * .035;
-        darknessCtx.globalAlpha = .5; darknessCtx.fillStyle = glow;
-        darknessCtx.beginPath(); darknessCtx.moveTo(cx, cy); darknessCtx.arc(cx, cy, size * 3.2, angle - half, angle + half); darknessCtx.closePath(); darknessCtx.fill();
-      }
-      darknessCtx.globalAlpha = 1;
-      darknessCtx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(darkness, 0, 0);
-      // 주변 원형 빛은 없애되, 자신의 캐릭터는 어둠 위에 다시 그려 위치를 알아볼 수 있게 한다.
-      ctx.save(); ctx.translate(cx, cy);
-      drawPlayer(mine, getName(), size);
-      ctx.restore();
-    }
+
   }
   ws.addEventListener('message', event => {
     const msg = JSON.parse(event.data), data = msg.data || {};
     if (msg.type === 'round_start' || msg.type === 'return_lobby' || msg.type === 'match_cancelled' || msg.type === 'match_error') {
+      resetAudio(); watched = null; spectator.hidden = true; control.hidden = host;
       reset(); playing = false; root.hidden = true; finale.hidden = true; snapshot = null; previous = null; zombieDirections = []; zombieMovedAt = []; playerMovedAt = {}; playerDeathAt = {}; stopRendering();
     } else if (msg.type === 'me_intro') {
-      root.hidden = false; finale.hidden = true; playing = false; jumpButton.disabled = true; jumpCount.textContent = `${MONSTER_ESCAPE_JUMP_LIMIT} / ${MONSTER_ESCAPE_JUMP_LIMIT}`; jumpHint.textContent = '얇은 벽 앞에서 사용'; clock.textContent = '곧 시작!'; status.textContent = '좀비를 피해 살아남으세요!';
-      mapName.textContent = data.map_name ? `맵: ${data.map_name}` : '';
+      resetAudio(); watched = null; spectator.hidden = true; control.hidden = host;
+      root.hidden = false; finale.hidden = true; playing = false; jumpButton.disabled = true; jumpCount.textContent = `${MONSTER_ESCAPE_JUMP_LIMIT} / ${MONSTER_ESCAPE_JUMP_LIMIT}`; jumpHint.textContent = '얇은 벽 앞에서 사용'; clock.style.color = ''; clock.textContent = '곧 시작!'; status.textContent = '좀비를 피해 살아남으세요!';
+      mapName.textContent = data.map_name || ''; root.querySelector('[data-survivors]').textContent = ''; root.querySelector('.me-charge').style.setProperty('--charge', '100%');
       snapshot = {map: data.map, players: {}, monsters: []}; previous = null; draw(snapshot);
     } else if (msg.type === 'me_state') {
       root.hidden = false;
@@ -411,28 +558,40 @@ function setupMonsterEscape(ws, role, getName) {
       if (!host && me) {
         const left = me.jumps_left ?? 0;
         jumpCount.textContent = `${left} / ${MONSTER_ESCAPE_JUMP_LIMIT}`;
+        const charge = me.jump_recharge_in == null ? (left >= MONSTER_ESCAPE_JUMP_LIMIT ? 1 : 0) : Math.max(0, Math.min(1, 1 - me.jump_recharge_in / 15));
+        root.querySelector('.me-charge').style.setProperty('--charge', `${charge * 100}%`);
         jumpButton.disabled = !playing || left <= 0 || !!me.jump;
         if (!me.alive) jumpHint.textContent = '관전 중';
         else if (me.jump) jumpHint.textContent = '벽을 넘는 중!';
-        else if (left <= 0) jumpHint.textContent = '모두 사용했어요';
-        else if (previous && previous.players && previous.players[getName()] && previous.players[getName()].jump) jumpHint.textContent = '착지 완료!';
+        else if (me.jump_recharge_in != null) jumpHint.textContent = `다음 충전 ${Math.ceil(me.jump_recharge_in)}초`;
+        else jumpHint.textContent = '얇은 벽 앞에서 사용';
       }
       if (!playing && pointer !== null) reset();
-      clock.textContent = `남은 시간 ${Math.ceil(data.remaining)}초`;
-      status.dataset.lighting = data.lighting || 'normal';
-      mapName.textContent = `맵: ${data.map_name || '정원'} (${data.map[0].length}×${data.map.length})${data.reinforcements_in > 0 ? ` · 좀비 출발까지 ${Math.ceil(data.reinforcements_in)}초` : ''}`;
+      updateSpectator(data);
+      syncAudio(data);
+      clock.style.color = data.remaining <= 30 && !data.ending ? '#ef4444' : '';
+      const seconds = Math.max(0, Math.ceil(data.remaining));
+      clock.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+      root.querySelector('[data-survivors]').textContent = `생존 ${Object.values(data.players).filter(p => p.alive && p.connected).length} / ${Object.keys(data.players).length}`;
+      mapName.textContent = `${data.map_name || '정원'}${data.reinforcements_in > 0 ? ` · 좀비 출발까지 ${Math.ceil(data.reinforcements_in)}초` : ''}`;
       if (data.ending) {
         clock.textContent = '생존 결과 확인 중';
         status.textContent = data.ending === 'last_survivor' ? '마지막 생존자가 결정됐어요!' : data.ending === 'time_limit' ? '제한 시간이 끝났어요!' : '모든 플레이어가 탈락했어요.';
       } else if (!host && me && !me.alive) status.textContent = '탈락했어요 · 관전 중';
-      else if (data.lighting === 'warning') status.textContent = '⚠️ 곧 정전! 손전등을 준비하세요';
-      else if (data.lighting === 'blackout') status.textContent = host ? '🔦 정전 중 · 참가자의 시야가 좁아졌어요' : '🔦 정전! 이동 방향을 비춰요';
       else status.textContent = '좀비를 피해 도망가요!';
     } else if (msg.type === 'me_over') {
-      reset(); playing = false; jumpButton.disabled = true; stopRendering(); if (snapshot) draw(snapshot); clock.textContent = '게임 종료';
+      spectator.hidden = true;
+      reset(); playing = false; jumpButton.disabled = true; stopRendering(); if (snapshot) draw(snapshot); clock.style.color = ''; clock.textContent = '게임 종료';
       status.textContent = data.winners && data.winners.length ? '우승: ' + data.winners.join(', ') : '경기가 종료됐어요.';
+      if (!audioEnded) {
+        audioEnded = true;
+        audio?.stop('heart');
+        audio?.fadeOut('normal', 1000);
+        audio?.play(data.winners?.includes(getName()) ? 'win' : 'loss');
+      }
       showFinale(data);
     } else if (msg.type === 'round_result' || msg.type === 'match_over' || msg.type === 'game_cancelled') {
+      resetAudio(); watched = null; spectator.hidden = true; control.hidden = host;
       reset(); playing = false; root.hidden = true; finale.hidden = true; stopRendering();
     }
   });

@@ -109,6 +109,8 @@ def make_match_game(match, info):
     game = info["game_class"](names, to_everyone, **kwargs)
     if hasattr(game, "virtual_players"):
         game.virtual_players = set(getattr(match, "virtual_players", ())) & set(names)
+    if hasattr(game, "virtual_invincible"):
+        game.virtual_invincible = test_mode_enabled() and getattr(match, "virtual_invincible", False)
     game.running = True
     return game
 async def send_preparation_update(current):
@@ -277,14 +279,18 @@ async def ws_host(ws: WebSocket):
                 selected = data.get('game_id')
                 selected_map = data.get("map_name")
                 virtual_count = data.get("virtual_count", 0)
-                if (selected is not None or selected_map is not None or "virtual_count" in data) and not test_mode_enabled():
+                if (selected is not None or selected_map is not None or "virtual_count" in data or "virtual_invincible" in data) and not test_mode_enabled():
                     await ws.send_json({'type': 'start_error', 'data': {'message': '게임 선택 테스트 모드가 꺼져 있어요.'}})
                     continue
                 try:
                     real_names = list(players.values())
                     bots = virtual_names(real_names, virtual_count)
+                    invincible = data.get("virtual_invincible", False)
+                    if type(invincible) is not bool or (invincible and not bots):
+                        raise ValueError("가상 참가자 무적 설정이 올바르지 않아요.")
                     match = Match(real_names + bots, GAME_REGISTRY, selected_game_id=selected, selected_map_name=selected_map)
                     match.virtual_players = tuple(bots)
+                    match.virtual_invincible = invincible
                 except ValueError as error:
                     print("대회를 시작할 수 없습니다:", error, flush=True)
                     await ws.send_json({"type": "start_error", "data": {"message": str(error)}})

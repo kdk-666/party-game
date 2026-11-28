@@ -1,51 +1,36 @@
 # 오픈소스 활용 정리 (Motion Party)
 
-이 프로젝트가 어떤 오픈소스를 **왜, 어디에, 어떤 라이선스로** 쓰는지 정리한 문서입니다.
-(버전과 개수는 개발 환경에서 확인한 값이며, 설치한 PC에서는 `pip list`로 확인할 수 있습니다.)
+## 1. 실행 의존성
 
-## 1. 직접 선택해 사용한 라이브러리
-| 이름 | 버전 | 라이선스 | 어디에 쓰나 | 직접 만들지 않은 이유 |
-|---|---|---|---|---|
-| FastAPI | 0.165 | MIT | `server/main.py` 웹 서버, WebSocket 통신 | 실시간 통신을 처음부터 만드는 것은 비효율적 |
-| Uvicorn | 0.54 | BSD-3-Clause | `run.py` 서버 실행, HTTPS | FastAPI를 실행하는 표준 서버 |
-| qrcode | 8.2 | BSD | `/qr.svg` 참가용 QR 코드 | QR 규격 구현은 복잡함 |
-| Pillow | 12.2 | MIT-CMU | `server/games/color_utils.py` 사진 읽기, 영역 자르기 | 이미지 형식(JPEG 등) 해석 |
-| **Pymunk** | 7.3.1 | MIT | `server/games/tilt_maze.py` 공 굴리기의 물리(가속, 마찰, 벽 충돌, 튕김) | 충돌 계산은 버그가 많은 영역 |
-
-- 위 5개를 설치하면 자동으로 따라오는 패키지가 약 20개 더 있습니다 (starlette, pydantic, anyio, websockets 등).
-  모두 MIT, BSD, Apache-2.0, PSF 계열입니다.
-- Pymunk가 내부에서 쓰는 물리 엔진 **Chipmunk2D**도 MIT 라이선스입니다.
-
-## 2. 개발과 실행에 쓴 도구 (프로그램에 포함되지 않음)
-| 이름 | 라이선스 | 용도 |
-|---|---|---|
-| pytest | MIT | 점수와 물리 자동 테스트 |
-| mkcert | BSD-3-Clause | 로컬 HTTPS 인증서 |
-| cloudflared | Apache-2.0 | Docker 터널 모드 |
-| Git | GPL-2.0 | 버전 관리 (도구로만 사용, 코드에 포함하지 않음) |
-
-## 3. 선택 과정: 공 굴리기 물리 엔진
-| 후보 | 라이선스 | 결과 | 이유 |
+| 라이브러리 | 요구 버전 | 일반적인 라이선스 | 용도 |
 |---|---|---|---|
-| **Pymunk** | MIT | **채택** | 서버(Python)에서 동작해 "서버가 판정한다"는 기존 구조를 유지하고, `pip`로 설치되어 저장소에 파일을 넣을 필요가 없음 |
-| Matter.js | MIT | 보류 | 브라우저에서 물리가 돌아 서버가 위치를 알 수 없고, 인터넷 없이 쓰려면 파일을 저장소에 직접 넣어야 함 |
-| planck.js | MIT | 보류 | Matter.js와 같은 이유 |
-| Phaser | MIT | 보류 | 게임 프레임워크 전체라 구조를 크게 바꿔야 함. 나중에 "그리기 도구"로 추가하는 것을 검토 |
+| FastAPI | 미고정 | MIT | 웹 서버, WebSocket |
+| Uvicorn | 미고정 | BSD-3-Clause | ASGI 서버 |
+| qrcode | 미고정 | BSD-3-Clause | 참가 QR 코드 |
+| Pillow | 미고정 | MIT-CMU (및 구성 요소별 고지) | 이미지 처리 |
+| Pymunk | 7.3.1 | MIT | 공 굴리기 물리 |
+| pathfinding | 1.0.23 | MIT | 경로 탐색 |
+| Howler.js | 2.2.4 | MIT | 브라우저 BGM 및 효과음 |
 
-## 4. 직접 만든 코드와 오픈소스의 역할 구분
-- **오픈소스가 하는 일**: 웹 서버, 통신, QR 생성, 이미지 해석, 물리 충돌 계산
-- **직접 만든 일**: 미로 해석과 경로 계산(`Maze`), 구멍/체크포인트/도착 규칙, 순위와 점수, 색 비교(Lab 거리), 대회 진행(`match.py`), 모든 화면
-- Pymunk 도입으로 직접 만든 충돌 처리(약 60줄)를 라이브러리로 교체했고, 같은 자동 테스트(연습 봇이 미로를 끝까지 통과하는지 등)로 동작을 확인했습니다.
+Python 패키지는 requirements.txt로 설치하며, 개발용 pytest와 httpx는 requirements-dev.txt에 기록합니다. 미고정 버전 및 전이 의존성의 정확한 라이선스는 실제 설치 환경에서 확인해야 합니다. Docker 이미지나 설치된 패키지 자체를 재배포할 때는 해당 구성 요소의 고지도 유지해야 합니다.
 
-## 5. 라이선스 준수 방법
-- 모든 라이브러리가 MIT, BSD, MIT-CMU, Apache-2.0, PSF로 **이 프로젝트의 MIT 라이선스와 호환**됩니다. GPL/AGPL 계열 라이브러리는 코드에 포함하지 않았습니다.
-- 라이브러리는 `pip`로 설치하고 `requirements.txt`에 버전을 적어 둡니다 (저장소에 라이브러리 소스를 복사해 넣지 않음).
-- 사용 목록은 [THIRD_PARTY.md](../THIRD_PARTY.md)에 기록하고, 새 라이브러리를 추가할 때마다 갱신합니다.
-- 이미지, 소리, 글꼴 등 외부 리소스는 현재 사용하지 않습니다. 저작권이 있는 소리는 포함하지 않는다는 원칙을 정했습니다.
+## 2. 저장소에 포함된 외부 파일
 
-## 6. 확인하는 방법
-```powershell
-pip list                      # 설치된 패키지와 버전
-pip show pymunk               # 라이선스(License), 홈페이지 등
-python -m pytest -q           # 자동 테스트
+- Howler.js: [MIT 라이선스 전문](../web/vendor/howler/LICENSE.md)을 유지합니다.
+- 좀비 게임 그래픽: [ASSET-CREDITS.md](../games/monster_escape/client/ASSET-CREDITS.md).
+- 좀비 게임 음원: [LICENSE.md](../web/audio/zombie/LICENSE.md).
+- 외부 이미지와 음원은 각 출처의 CC0 1.0 조건에 따라 이용하며 출처를 자발적으로 기록합니다. 프로젝트 자체 라이선스와 외부 파일의 라이선스는 구분합니다.
+
+## 3. 개발 도구
+
+pytest (MIT), httpx (BSD-3-Clause), Git (GPL-2.0), mkcert (BSD-3-Clause), cloudflared (Apache-2.0). 도구를 사용하는 것과 도구 바이너리를 재배포하는 것은 별개입니다.
+
+## 4. 확인 방법
+
+```bash
+python -m pip list
+python -m pip show pymunk pathfinding
+python -m pytest -q
 ```
+
+새 외부 에셋이나 라이브러리를 추가할 때 원본 출처, 라이선스와 실제 파일을 확인하고 관련 고지 문서를 갱신합니다.

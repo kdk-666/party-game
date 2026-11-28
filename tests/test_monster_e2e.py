@@ -120,7 +120,7 @@ def test_wall_jump_is_server_authoritative_and_broadcast_to_host(monkeypatch):
     original_init = game.MonsterEscape.__init__
 
     def setup_near_wall(self, names, broadcast, map_name=None):
-        original_init(self, names, broadcast, map_name='공원 갈림길')
+        original_init(self, names, broadcast, map_name='폐허가 된 도심')
         self.positions[names[0]] = [3.5, 2.5]
         self.monsters = [[11.5, 13.5] for _ in self.monsters]
     monkeypatch.setattr(game.MonsterEscape, '__init__', setup_near_wall)
@@ -131,7 +131,7 @@ def test_wall_jump_is_server_authoritative_and_broadcast_to_host(monkeypatch):
         token = until(player, 'round_start')['token']
         player.send_json({'type': 'ready', 'data': {'token': token}})
         state = until(player, 'me_state')
-        assert state['players']['민지']['jumps_left'] == 3
+        assert state['players']['민지']['jumps_left'] == 5
         player.send_json({'type': 'me_move', 'data': {'x': 1, 'y': 0}})
         player.send_json({'type': 'me_move', 'data': {'x': 0, 'y': 0}})
         player.send_json({'type': 'me_jump', 'data': {'target': [999, 999]}})
@@ -141,7 +141,7 @@ def test_wall_jump_is_server_authoritative_and_broadcast_to_host(monkeypatch):
                 break
             jumping = until(player, 'me_state')
         assert jumping['players']['민지']['jump'] is not None
-        assert jumping['players']['민지']['jumps_left'] == 2
+        assert jumping['players']['민지']['jumps_left'] == 4
         host_state = until(host, 'me_state')
         for _ in range(10):
             if host_state['players']['민지']['jump']:
@@ -156,46 +156,14 @@ def test_wall_jump_is_server_authoritative_and_broadcast_to_host(monkeypatch):
         assert landed['players']['민지']['jump'] is None
         assert landed['players']['민지']['x'] == 5.5
         assert landed['players']['민지']['y'] == 2.5
-        assert landed['players']['민지']['jumps_left'] == 2
-
-
-def test_blackout_and_flashlight_direction_over_websocket(monkeypatch):
-    monkeypatch.setattr(game, 'BLACKOUT_ENABLED', True)
-    monkeypatch.setattr(main, 'GAME_REGISTRY', {'monster_escape': GAME_INFO})
-    monkeypatch.setattr(game, 'TIME_LIMIT', 1.3)
-    monkeypatch.setattr(game, 'BLACKOUT_START', 0.4)
-    monkeypatch.setattr(game, 'BLACKOUT_WARNING', 0.2)
-    with TestClient(main.app) as c, c.websocket_connect('/ws/host') as host, c.websocket_connect('/ws/player') as player:
-        player.send_json({'type': 'join', 'data': {'name': '민지'}})
-        until(player, 'join_ok')
-        host.send_json({'type': 'start', 'data': {}})
-        token = until(player, 'round_start')['token']
-        player.send_json({'type': 'ready', 'data': {'token': token}})
-        until(player, 'me_intro')
-        until(player, 'me_state')
-        player.send_json({'type': 'me_move', 'data': {'x': 1, 'y': 0}})
-        player.send_json({'type': 'me_move', 'data': {'x': 0, 'y': 0}})
-        phases = set()
-        for _ in range(10):
-            state = until(player, 'me_state')
-            phases.add(state['lighting'])
-            if 'blackout' in phases and 'warning' in phases:
-                break
-        assert {'warning', 'blackout'} <= phases
-        assert state['players']['민지']['facing'] == [1.0, 0.0]
-        for _ in range(4):
-            assert until(player, 'me_state')['lighting'] == 'blackout'
+        assert landed['players']['민지']['jumps_left'] == 4
 
 
 @pytest.mark.parametrize('count', [2, 3, 4])
-@pytest.mark.parametrize('blackout_enabled', [False, True])
-def test_multiplayer_movement_blackout_and_scores(monkeypatch, count, blackout_enabled):
-    monkeypatch.setattr(game, 'BLACKOUT_ENABLED', blackout_enabled)
+def test_multiplayer_movement_and_scores(monkeypatch, count):
     monkeypatch.setattr(main, 'GAME_REGISTRY', {'monster_escape': GAME_INFO})
     # 동시 입력·상태 전달을 확인하기 위한 단축 경기: 좀비는 정지시켜 조기 탈락을 방지한다.
     monkeypatch.setattr(game, 'TIME_LIMIT', 1.5)
-    monkeypatch.setattr(game, 'BLACKOUT_START', 0.5)
-    monkeypatch.setattr(game, 'BLACKOUT_WARNING', 0.2)
     monkeypatch.setattr(game, 'MONSTER_SPEED', 0.0)
     monkeypatch.setattr(main, 'LAST_GAME_RESULT_SECONDS', 0)
     monkeypatch.setattr(main, 'INTERMISSION_SECONDS', 0)
@@ -228,16 +196,6 @@ def test_multiplayer_movement_blackout_and_scores(monkeypatch, count, blackout_e
                     observed = True
                     break
             assert observed, '모든 참가자의 이동이 각 참가자에게 반영되어야 합니다'
-        for player in players:
-            phases = set()
-            for _ in range(7):
-                phases.add(until(player, 'me_state')['lighting'])
-                if blackout_enabled and 'blackout' in phases:
-                    break
-            if blackout_enabled:
-                assert 'blackout' in phases
-            else:
-                assert phases == {'normal'}
         for player in players:
             result = until(player, 'me_over')
             assert set(result['scores']) == set(names)

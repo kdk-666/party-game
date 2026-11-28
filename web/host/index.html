@@ -28,6 +28,8 @@
       <select id="test-game"><option value="">일반 대회 (랜덤)</option></select>
       <label for="test-virtual-count">추가 가상 참가자</label>
       <select id="test-virtual-count"><option value="0">0명</option></select>
+      <label for="test-virtual-invincible">좀비 가상 참가자 생존 설정</label>
+      <select id="test-virtual-invincible" disabled><option value="normal">일반</option><option value="invincible">무적</option></select>
       <div id="test-map-row" hidden>
         <div class="test-map-heading"><span id="test-map-label">테스트할 맵</span><button type="button" id="test-map-random" aria-pressed="true">무작위 선택</button></div>
         <select id="test-map" hidden aria-labelledby="test-map-label"><option value="">무작위</option></select>
@@ -63,6 +65,8 @@
 </div>
 <!-- GAME_ASSETS -->
 <script src="/static/guide.js"></script>
+<script src="/static/vendor/howler/howler.min.js"></script>
+<script src="/static/audio-manager.js"></script>
 <script src="/static/game-router.js"></script>
 <script src="/static/host-lobby.js"></script>
 <script src="/static/scoreboard.js"></script>

@@ -115,8 +115,9 @@ def test_virtual_players_disabled(monkeypatch):
     monkeypatch.delenv('PARTY_TEST_MODE', raising=False)
     with TestClient(main.app) as client, client.websocket_connect('/ws/host') as host, client.websocket_connect('/ws/player') as player:
         join(player, '가')
-        host.send_json({'type': 'start', 'data': {'virtual_count': 1}})
-        assert '꺼져' in until(host, 'start_error')['message']
+        for data in ({'virtual_count': 1}, {'virtual_invincible': True}):
+            host.send_json({'type': 'start', 'data': data})
+            assert '꺼져' in until(host, 'start_error')['message']
 
 
 def test_virtual_names_avoid_collision():

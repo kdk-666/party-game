@@ -8,7 +8,7 @@ async def noop(_):
     pass
 
 
-def make_game(names=('가',), map_name='공원 갈림길'):
+def make_game(names=('가',), map_name='폐허가 된 도심'):
     game = monster.MonsterEscape(list(names), noop, map_name=map_name)
     game.phase = 'playing'
     return game
@@ -35,7 +35,7 @@ def test_jump_checks_the_entire_landing_body_not_only_center():
     assert monster.jump_destination([2.5, 2.5], (1, 0), rows) == [4.5, 2.5]
 
 
-def test_jump_uses_server_facing_only_three_uses_and_no_duplicate_while_airborne(monkeypatch):
+def test_jump_uses_server_facing_only_five_uses_and_no_duplicate_while_airborne(monkeypatch):
     monkeypatch.setattr(monster, 'MONSTER_SPEED', 0)
     game = make_game()
     game.positions['가'] = [3.5, 2.5]
@@ -43,7 +43,7 @@ def test_jump_uses_server_facing_only_three_uses_and_no_duplicate_while_airborne
     game.facing['가'] = (1, 0)
     send(game, '가', 'me_jump', {'x': 999, 'target': [100, 100]})
     send(game, '가', 'me_jump')  # 연타해도 진행 중에는 소모되지 않는다.
-    assert game.jumps_left['가'] == 2
+    assert game.jumps_left['가'] == 4
     assert game.positions['가'] == [3.5, 2.5]
     game.step(.2, time.monotonic(), 0)
     snap = game.snapshot()['players']['가']
@@ -54,14 +54,19 @@ def test_jump_uses_server_facing_only_three_uses_and_no_duplicate_while_airborne
     assert game.positions['가'] == [5.5, 2.5] and game.snapshot()['players']['가']['jump'] is None
     game.facing['가'] = (-1, 0)
     send(game, '가', 'me_jump')
-    assert game.jumps_left['가'] == 1
+    assert game.jumps_left['가'] == 3
     game.step(.45, time.monotonic(), 2)
     assert game.positions['가'] == [3.5, 2.5]
     game.facing['가'] = (1, 0)
     send(game, '가', 'me_jump')
-    assert game.jumps_left['가'] == 0 and '가' in game.jumping
+    assert game.jumps_left['가'] == 2 and '가' in game.jumping
     game.step(.45, time.monotonic(), 3)
     assert game.positions['가'] == [5.5, 2.5]
+    for tick, direction in enumerate((-1, 1), 4):
+        game.facing['가'] = (direction, 0)
+        send(game, '가', 'me_jump')
+        assert game.jumps_left['가'] == 5 - tick
+        game.step(.45, time.monotonic(), tick)
     game.facing['가'] = (-1, 0)
     send(game, '가', 'me_jump')
     assert game.jumps_left['가'] == 0 and '가' not in game.jumping
@@ -72,7 +77,7 @@ def test_invalid_jumps_do_not_spend_uses_and_inputs_require_living_connected_pla
     game.positions['가'] = [1.5, 1.5]
     game.facing['가'] = (-1, 0)
     send(game, '가', 'me_jump')
-    assert game.jumps_left['가'] == 3 and not game.jumping
+    assert game.jumps_left['가'] == 5 and not game.jumping
     game.positions['가'] = [3.5, 2.5]
     game.facing['가'] = (1, 0)
     game.phase = 'finishing'
@@ -84,7 +89,7 @@ def test_invalid_jumps_do_not_spend_uses_and_inputs_require_living_connected_pla
     game.connected.remove('가')
     send(game, '가', 'me_jump')
     send(game, 'not-a-player', 'me_jump')
-    assert game.jumps_left['가'] == 3 and not game.jumping
+    assert game.jumps_left['가'] == 5 and not game.jumping
 
 
 def test_jump_invulnerability_ends_on_landing(monkeypatch):
@@ -109,8 +114,8 @@ def test_jump_counts_are_independent_and_disconnect_cancels_jump():
     game.facing['가'] = (1, 0)
     send(game, '가', 'me_jump')
     state = game.snapshot()['players']
-    assert state['가']['jumps_left'] == 2 and state['가']['jump'] is not None
-    assert all(state[name]['jumps_left'] == 3 and state[name]['jump'] is None for name in ('나', '다', '라'))
+    assert state['가']['jumps_left'] == 4 and state['가']['jump'] is not None
+    assert all(state[name]['jumps_left'] == 5 and state[name]['jump'] is None for name in ('나', '다', '라'))
     asyncio.run(game.remove_player('가'))
     assert '가' not in game.jumping and '가' not in game.alive
 
@@ -134,3 +139,32 @@ def test_all_map_sizes_have_thin_jumpable_walls_with_safe_landings():
                         assert 0 < x + dx < len(row) - 1 and 0 < y + dy < len(rows) - 1
                         assert monster.walkable(*dest, rows)
             assert found > 0, (name, count)
+
+
+def test_jump_recharge_is_sequential_and_capped():
+    game = make_game()
+    game.positions['가'] = [3.5, 2.5]
+    game.facing['가'] = (1, 0)
+    send(game, '가', 'me_jump')
+    game.update_jump_recharge(10)
+    game.jumping.clear()
+    send(game, '가', 'me_jump')
+    assert game.jumps_left['가'] == 3
+    assert game.snapshot()['players']['가']['jump_recharge_in'] == 5
+    game.update_jump_recharge(5)
+    assert game.jumps_left['가'] == 4
+    game.update_jump_recharge(15)
+    assert game.jumps_left['가'] == 5
+    game.update_jump_recharge(60)
+    assert game.jump_recharge['가'] == 0
+    assert game.snapshot()['players']['가']['jump_recharge_in'] is None
+
+
+def test_jump_recharge_applies_to_virtual_players_but_not_eliminated_players():
+    game = make_game(('가', '나'))
+    game.virtual_players = {'나'}
+    game.jumps_left.update({'가': 0, '나': 0})
+    game.alive.remove('가')
+    game.update_jump_recharge(15)
+    assert game.jumps_left == {'가': 0, '나': 1}
+    assert game.snapshot()['players']['가']['jump_recharge_in'] is None

@@ -7,27 +7,12 @@ from games.monster_escape.game import (MonsterEscape, move, walkable, GARDEN_MAP
                                        ORIGINAL_MAP, STARTS, CENTER_STARTS, MAPS,
                                        MIN_PLAYER_SPAWN_DISTANCE, MIN_ZOMBIE_SPAWN_DISTANCE,
                                        ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE,
-                                       path_updates_for_tick, blackout_phase,
+                                       path_updates_for_tick, initial_owner_indices,
                                        starting_positions, center_zombie_positions)
 
 
 async def noop(_):
     pass
-
-
-def test_blackout_can_be_disabled_for_chase_testing(monkeypatch):
-    monkeypatch.setattr(monster_game, 'BLACKOUT_ENABLED', False)
-    assert all(blackout_phase(t) == 'normal' for t in (0, 3, 5, 15, 30, 59.9))
-
-
-def test_blackout_starts_after_five_seconds_and_remains_on_when_restored(monkeypatch):
-    monkeypatch.setattr(monster_game, 'BLACKOUT_ENABLED', True)
-    assert blackout_phase(0) == 'normal'
-    assert blackout_phase(2.99) == 'normal'
-    assert blackout_phase(3) == 'warning'
-    assert blackout_phase(4.99) == 'warning'
-    assert blackout_phase(5) == 'blackout'
-    assert all(blackout_phase(t) == 'blackout' for t in (6, 15, 21, 30, 45, 59.9))
 
 
 def test_each_map_is_connected_and_supports_all_player_counts():
@@ -54,17 +39,14 @@ def test_each_map_is_connected_and_supports_all_player_counts():
             assert all(sum(walkable(p[0]+dx,p[1]+dy,rows) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1))) >= 3 for p in game.positions.values())
             assert all(walkable(*p, rows) for p in game.positions.values())
             assert game.snapshot()['map_name'] == name
-            assert game.initial_targets == [n for n in names for _ in range(2)] + [None] * 3
+            assert game.initial_targets == [names[i] if i is not None else None for i in initial_owner_indices(count)]
             assert len(game.monsters) == 2 * count + 3
             assert all(walkable(*m, rows) for m in game.monsters)
             assert all(math.dist(m, p) >= MIN_PLAYER_SPAWN_DISTANCE for m in game.monsters for p in game.positions.values())
-            assigned = game.monsters[:-3]
-            assert all(math.dist(m, p) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for m in assigned for p in game.positions.values())
-            # 배정 좀비가 모든 참가자의 시작 시야(중심 7칸) 바깥에 있다.
-            assert all(abs(m[0] - p[0]) > 4 or abs(m[1] - p[1]) > 4 for m in assigned for p in game.positions.values())
-            for i, player in enumerate(names):
-                assert all(math.dist(m, game.positions[player]) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for m in game.monsters[i*2:i*2+2])
-
+            for z, owner in zip(game.monsters, game.initial_targets):
+                if owner is not None:
+                    assert math.dist(z, game.positions[owner]) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE
+            assert all(math.dist(a,b) >= 2 for i,a in enumerate(game.monsters) for b in game.monsters[i+1:])
 
 
 def test_random_map_does_not_repeat_immediately():
@@ -376,8 +358,8 @@ def test_random_spawn_repeated_safety():
                             game.grid.cleanup()
                             path,_ = game.finder.find_path(game.grid.node(int(p[0]),int(p[1])),game.grid.node(int(z[0]),int(z[1])),game.grid)
                             assert len(path) >= 6
-                        assert all(math.dist(p,z) >= 8 for z in game.monsters[:-3])
-                    assert all(math.dist(a,b) >= 1.5 for i,a in enumerate(game.monsters) for b in game.monsters[i+1:])
+                        assert all(math.dist(game.positions[o],z) >= ASSIGNED_MIN_PLAYER_SPAWN_DISTANCE for z,o in zip(game.monsters,game.initial_targets) if o is not None)
+                    assert all(math.dist(a,b) >= 2.0 for i,a in enumerate(game.monsters) for b in game.monsters[i+1:])
                 assert len(layouts) > 1
     finally:
         random.setstate(state)
@@ -409,6 +391,20 @@ def test_virtual_player_moves_without_controlling_real_player():
     assert game.bot_next['bot'] < 11
 
 
+def test_virtual_invincibility_only_protects_bots():
+    for enabled in (False, True):
+        game = MonsterEscape(['real', 'bot'], noop)
+        game.virtual_players = {'bot'}
+        game.virtual_invincible = enabled
+        game.elapsed = 2
+        game.update_virtual_players = lambda now: None
+        game.monsters[0] = list(game.positions['real'])
+        game.monsters[1] = list(game.positions['bot'])
+        game.step(0, 10, 0)
+        assert 'real' not in game.alive
+        assert ('bot' in game.alive) == enabled
+
+
 def test_virtual_player_jumps_only_when_safe():
     game = MonsterEscape(['bot'], noop)
     game.virtual_players = {'bot'}
@@ -418,3 +414,15 @@ def test_virtual_player_jumps_only_when_safe():
     game.update_virtual_players(10)
     assert game.jumping['bot']['target'] == [4.5, 2.5]
     assert game.jumps_left['bot'] == monster_game.JUMP_LIMIT - 1
+
+
+def test_final_chase_speed_and_duration():
+    assert monster_game.TIME_LIMIT == 90
+    assert monster_game.monster_speed(59.99) == monster_game.MONSTER_SPEED
+    assert math.isclose(monster_game.monster_speed(60), monster_game.MONSTER_SPEED * 1.15)
+    assert math.isclose(monster_game.monster_speed(89), monster_game.MONSTER_SPEED * 1.15)
+
+def test_city_four_player_building_escape_routes():
+    rows = monster_game.CITY_LARGE_MAPS[4]
+    for pos, direction, target in [([14.5, 5.5], (1, 0), [16.5, 5.5]), ([5.5, 14.5], (0, 1), [5.5, 16.5]), ([14.5, 14.5], (1, 0), [16.5, 14.5])]:
+        assert monster_game.jump_destination(pos, direction, rows) == target

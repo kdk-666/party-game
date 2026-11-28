@@ -15,6 +15,7 @@ function setupHostLobby(ws) {
   const mapLegend = document.getElementById('test-map-legend');
   let testGames = [];
   let names = [];
+  const invincibleSelect = document.getElementById('test-virtual-invincible');
   const virtualSelect = document.getElementById('test-virtual-count');
   function virtualCount() { return virtualSelect && !testMode.hidden && names.length ? Number(virtualSelect.value) || 0 : 0; }
   function syncVirtual() {
@@ -80,6 +81,7 @@ function setupHostLobby(ws) {
 
   function drawLobby() {
     const bots = virtualCount();
+    if (invincibleSelect) invincibleSelect.disabled = !bots;
     count.textContent = `${names.length + bots} / 4명 참가 중` + (bots ? ` (가상 ${bots}명)` : '');
     slots.replaceChildren();
     for (let i = 0; i < 4; i++) {
@@ -96,7 +98,10 @@ function setupHostLobby(ws) {
     if (start.disabled || ws.readyState !== WebSocket.OPEN) return;
     const selected = !testMode.hidden && testGame.value;
     const data = selected ? {game_id: selected} : {};
-    if (virtualCount()) data.virtual_count = virtualCount();
+    if (virtualCount()) {
+      data.virtual_count = virtualCount();
+      if (invincibleSelect?.value === 'invincible') data.virtual_invincible = true;
+    }
     if (selected && testMapRow && testMap && !testMapRow.hidden && testMap.value) data.map_name = testMap.value;
     ws.send(JSON.stringify({type: 'start', data}));
   });
